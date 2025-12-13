@@ -5,7 +5,7 @@ import { TimeDisplay } from '@/components/TimeDisplay';
 import { PoemDisplay } from '@/components/PoemDisplay';
 import { AnimatedCat } from '@/components/AnimatedCat';
 // 拖拽逻辑已迁移到 WebsiteCard
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTransparency } from '@/contexts/TransparencyContext';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import EmailVerificationBanner from '@/components/EmailVerificationBanner';
@@ -17,6 +17,8 @@ import { useRAFThrottledMouseMove } from '@/hooks/useRAFThrottle';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { logger } from '@/utils/logger';
 import { customWallpaperManager } from '@/lib/customWallpaperManager';
+import UserModal from '@/components/UserModal';
+import { useAuth } from '@/contexts/SupabaseAuthContext';
 
 interface HomeProps {
   websites: any[];
@@ -34,6 +36,8 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
   } = useTransparency();
   const { isWorkspaceOpen, setIsWorkspaceOpen } = useWorkspace();
   const { isMobile, getGridClasses, getSearchBarLayout } = useResponsiveLayout();
+  const { currentUser } = useAuth();
+  const [showUserModal, setShowUserModal] = useState(false);
 
   // 启用自动同步（传递数据初始化状态）
   const { triggerSync } = useAutoSync(websites, dataInitialized);
@@ -307,8 +311,8 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
       userInfo: isMobile ? 'fixed top-2 right-2 z-40 scale-90' : 'fixed top-4 right-4 z-40',
       workspaceButton: isMobile ? 'fixed top-2 left-2 z-40 scale-90' : 'fixed top-4 left-4 z-40',
       settingsButton: isMobile
-        ? 'fixed bottom-2 right-2 z-[9999] p-2 bg-white/10 rounded-full backdrop-blur-sm'
-        : 'fixed bottom-4 right-4 z-[9999]',
+        ? 'fixed bottom-2 right-2 z-[9999] p-2 bg-white/15 rounded-full backdrop-blur-sm shadow-lg'
+        : 'fixed bottom-4 right-4 z-[9999] p-2.5 bg-white/15 rounded-full backdrop-blur-sm shadow-lg hover:bg-white/25 transition-all duration-200',
     };
   };
 
@@ -426,14 +430,16 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
           </motion.div>
         </div>
 
-        {showSettings && (
-          <LazySettings
-            onClose={() => setShowSettings(false)}
-            websites={websites}
-            setWebsites={setWebsites}
-            onSettingsClose={triggerSync}
-          />
-        )}
+        <AnimatePresence>
+          {showSettings && (
+            <LazySettings
+              onClose={() => setShowSettings(false)}
+              websites={websites}
+              setWebsites={setWebsites}
+              onSettingsClose={triggerSync}
+            />
+          )}
+        </AnimatePresence>
 
         {/* 工作空间触发按钮 - 响应式调整 */}
         <motion.div
@@ -460,6 +466,40 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
             <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 px-3 py-1.5 bg-gray-900/90 text-white text-xs rounded-lg shadow-lg backdrop-blur-sm border border-white/10 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
               工作空间
               <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900/90"></div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 用户头像按钮 - 右上角 */}
+        <motion.div
+          className={isMobile ? 'fixed top-2 right-2 z-40 scale-90' : 'fixed top-4 right-4 z-40'}
+          animate={{
+            opacity: isSearchFocused ? 0 : 1,
+            scale: isSearchFocused ? 0.8 : 1
+          }}
+          whileTap={{ scale: 0.9 }}
+          transition={{ duration: 0.3, ease: "easeInOut" }}
+        >
+          <div className="relative group">
+            <button
+              onClick={() => setShowUserModal(true)}
+              className="flex items-center justify-center transition-all duration-200 cursor-pointer p-2"
+            >
+              {currentUser ? (
+                <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white/30">
+                  <i className="fa-solid fa-cat text-white text-sm"></i>
+                </div>
+              ) : (
+                <i
+                  className={`fa-solid fa-user-circle text-white/70 group-hover:text-white group-hover:drop-shadow-lg transition-all duration-200 ${isMobile ? 'text-xl' : 'text-2xl'}`}
+                ></i>
+              )}
+            </button>
+
+            {/* 自定义悬停提示 */}
+            <div className="absolute right-0 top-full mt-2 px-3 py-1.5 bg-gray-900/90 text-white text-xs rounded-lg shadow-lg backdrop-blur-sm border border-white/10 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
+              {currentUser ? '个人中心' : '登录 / 注册'}
+              <div className="absolute bottom-full right-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900/90"></div>
             </div>
           </div>
         </motion.div>
@@ -534,10 +574,10 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
         >
           <button
             onClick={() => setShowSettings(true)}
-            className={`${isMobile ? 'p-2' : 'p-2'} text-white/70 hover:text-white transition-colors`}
+            className="text-white/90 hover:text-white transition-colors drop-shadow-md"
             aria-label="设置"
           >
-            <i className={`fa-solid fa-sliders ${isMobile ? 'text-base' : 'text-lg'}`}></i>
+            <i className={`fa-solid fa-sliders ${isMobile ? 'text-lg' : 'text-xl'}`}></i>
           </button>
         </motion.div>
 
@@ -549,6 +589,9 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
 
         {/* 工作空间模态框 */}
         <LazyWorkspaceModal isOpen={isWorkspaceOpen} onClose={() => setIsWorkspaceOpen(false)} />
+
+        {/* 用户模态框 */}
+        <UserModal isOpen={showUserModal} onClose={() => setShowUserModal(false)} />
       </div>
     </>
   );

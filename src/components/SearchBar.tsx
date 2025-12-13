@@ -38,7 +38,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
   const { websites = [], onOpenSettings } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const { searchBarOpacity, searchBarColor, setIsSearchFocused, searchInNewTab, isSettingsOpen, searchBarBorderRadius, animationStyle } =
+  const { searchBarOpacity, searchBarColor, setIsSearchFocused, searchInNewTab, isSettingsOpen, searchBarBorderRadius, animationStyle, searchEngine } =
     useTransparency();
   const { isMobile } = useResponsiveLayout();
   const { isWorkspaceOpen, setIsWorkspaceOpen, workspaceItems } = useWorkspace();
@@ -46,7 +46,6 @@ function SearchBarComponent(props: SearchBarProps = {}) {
   // 状态变量声明移到useEffect之前
   const [searchQuery, setSearchQuery] = useState('');
   const [isHovered, setIsHovered] = useState(false);
-  const [engine, setEngine] = useState<'bing' | 'google'>('bing');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [websiteSuggestions, setWebsiteSuggestions] = useState<WebsiteData[]>([]);
   const [workspaceSuggestions, setWorkspaceSuggestions] = useState<WorkspaceSuggestionData[]>([]);
@@ -54,282 +53,10 @@ function SearchBarComponent(props: SearchBarProps = {}) {
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const searchBtnRef = useRef<HTMLButtonElement>(null);
   const [hoveredEmojiIdx, setHoveredEmojiIdx] = useState<number | null>(null);
-  const [showEngineTooltip, setShowEngineTooltip] = useState(false);
   const searchBarRef = useRef<HTMLFormElement>(null);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const emojiTooltipTimerRef = useRef<NodeJS.Timeout | null>(null); // AI图标文字提示延迟定时器
 
-  // TODO功能相关状态
-  const [showTodoModal, setShowTodoModal] = useState(false);
-  const [todoFeedback, setTodoFeedback] = useState<string | null>(null);
-
-  // 添加TODO到存储
-  const addTodoToStorage = (todoText: string) => {
-    const STORAGE_KEY = 'time-display-todos';
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let todos = [];
-
-    if (stored) {
-      try {
-        todos = JSON.parse(stored);
-      } catch {
-        todos = [];
-      }
-    }
-
-    const newTodo = {
-      id: Date.now().toString(),
-      text: todoText.trim(),
-      completed: false,
-      createdAt: Date.now(),
-      order: Math.max(0, ...todos.map((todo: any) => todo.order || 0)) + 1,
-    };
-
-    todos = [newTodo, ...todos].slice(0, 1000); // 限制为1000条
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-
-    // 显示反馈
-    setTodoFeedback(`已添加到TODO：${todoText}`);
-    setTimeout(() => setTodoFeedback(null), 3000);
-  };
-
-  // 创建彩带动画效果 - 使用真正多样的SVG形状
-  const createFireworkEffect = useCallback((centerX: number, centerY: number) => {
-    // 丰富的彩带颜色
-    const colors = [
-      '#FF6B6B',
-      '#4ECDC4',
-      '#45B7D1',
-      '#96CEB4',
-      '#FECA57',
-      '#FF9FF3',
-      '#54A0FF',
-      '#5F27CD',
-      '#00D2D3',
-      '#FF9F43',
-      '#EE5A24',
-      '#FD79A8',
-      '#0FB9B1',
-      '#A55EEA',
-      '#26D0CE',
-      '#FDCB6E',
-      '#6C5CE7',
-      '#74B9FF',
-      '#E17055',
-      '#F39C12',
-      '#E74C3C',
-      '#3498DB',
-      '#9B59B6',
-      '#1ABC9C',
-    ];
-
-    // 多样的SVG彩带形状路径 - 更小更多样的形状
-    const ribbonPaths = [
-      'M2,5 Q12,2 22,5 Q32,8 42,5 L42,8 Q32,11 22,8 Q12,5 2,8 Z',
-      'M20,2 L38,2 L29,12 Z',
-      'M20,7 A6,6 0,1,1 20,7.1 Z',
-      'M20,2 L30,7 L20,12 L10,7 Z',
-      'M20,2 L22,8 L28,8 L23,11 L25,17 L20,14 L15,17 L17,11 L12,8 L18,8 Z',
-      'M2,6 Q15,2 28,6 Q41,10 54,6 L54,9 Q41,13 28,9 Q15,5 2,9 Z',
-    ];
-
-    // 创建彩带
-    for (let i = 0; i < 30; i++) {
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-
-      const pathData = ribbonPaths[Math.floor(Math.random() * ribbonPaths.length)];
-      const color = colors[Math.floor(Math.random() * colors.length)];
-      const width = Math.random() * 25 + 15;
-      const height = Math.random() * 15 + 8;
-
-      svg.setAttribute('width', width.toString());
-      svg.setAttribute('height', height.toString());
-      svg.setAttribute('viewBox', '0 0 44 14');
-      svg.style.position = 'fixed';
-      svg.style.pointerEvents = 'none';
-      svg.style.zIndex = '9999';
-      svg.style.left = centerX + 'px';
-      svg.style.top = centerY + 'px';
-
-      path.setAttribute('d', pathData);
-      path.setAttribute('fill', color);
-      path.setAttribute('opacity', '0.9');
-
-      svg.appendChild(path);
-      document.body.appendChild(svg);
-
-      const angle = Math.random() * 360 * (Math.PI / 180);
-      const velocity = Math.random() * 4 + 2;
-      let vx = Math.cos(angle) * velocity;
-      let vy = Math.sin(angle) * velocity;
-      const rotationSpeed = (Math.random() - 0.5) * 80;
-      let rotation = Math.random() * 360;
-      let x = centerX - width / 2;
-      let y = centerY - height / 2;
-      const gravity = 0.2;
-      const friction = 0.998;
-      const startTime = Date.now();
-
-      const animate = () => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        vy += gravity;
-        vx *= friction;
-        vy *= friction;
-        x += vx;
-        y += vy;
-        rotation += rotationSpeed * (1 / 60);
-        svg.style.left = x + 'px';
-        svg.style.top = y + 'px';
-        svg.style.transform = `rotate(${rotation}deg)`;
-        const opacity = Math.max(0, 1 - elapsed / 7);
-        svg.style.opacity = opacity.toString();
-
-        if (opacity > 0 && y < window.innerHeight + 100) {
-          requestAnimationFrame(animate);
-        } else {
-          if (document.body.contains(svg)) {
-            document.body.removeChild(svg);
-          }
-        }
-      };
-
-      setTimeout(() => {
-        requestAnimationFrame(animate);
-      }, Math.random() * 150);
-    }
-  }, []);
-
-  // 清理定时器
-  useEffect(() => {
-    return () => {
-      if (hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-        hoverTimerRef.current = null;
-      }
-    };
-  }, []);
-
-  // 全局监听空格键，未聚焦输入框时聚焦搜索框
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // 检查是否有阻止全局快捷键的模态框打开
-      // 工作空间模态框不应该阻止空格键，因为它有自己的搜索框
-      const shouldBlockGlobalShortcuts = isSettingsOpen || showTodoModal;
-
-      // 更精确地检查DOM中是否有其他需要阻止快捷键的模态框
-      // 检查是否存在模态框背景遮罩（通常使用fixed定位和高z-index）
-      const modalBackdrops = document.querySelectorAll('.fixed.inset-0');
-      const hasBlockingModalBackdrop = Array.from(modalBackdrops).some(el => {
-        const styles = window.getComputedStyle(el);
-        const zIndex = parseInt(styles.zIndex) || 0;
-        // 检查是否是需要阻止快捷键的模态框背景
-        // 排除工作空间和壁纸背景
-        return zIndex >= 40 &&
-          !el.classList.contains('wallpaper') &&
-          !el.querySelector('img') && // 不包含图片（排除壁纸）
-          styles.display !== 'none' &&
-          !el.closest('[data-workspace-modal]'); // 排除工作空间模态框
-      });
-
-      if (shouldBlockGlobalShortcuts || hasBlockingModalBackdrop) {
-        return; // 有阻止性模态框打开时，不处理快捷键
-      }
-
-      // 处理Tab键切换搜索引擎
-      if (e.key === 'Tab' && !e.shiftKey) {
-        // 判断当前聚焦元素是否是输入框/textarea/可编辑内容
-        const active = document.activeElement;
-        const isInput =
-          active &&
-          (active.tagName === 'INPUT' ||
-            active.tagName === 'TEXTAREA' ||
-            (active as HTMLElement).isContentEditable);
-
-        // 如果是我们的搜索框或者不在任何输入框中，则切换搜索引擎
-        const isOurSearchInput = active === inputRef.current;
-        if (!isInput || isOurSearchInput) {
-          e.preventDefault();
-          // 切换引擎并触发彩带动画
-          setEngine((prevEngine) => (prevEngine === 'bing' ? 'google' : 'bing'));
-
-          // 触发彩带动画 - 从搜索引擎按钮位置
-          const engineButton = document
-            .querySelector('.fa-brands.fa-microsoft, .fa-brands.fa-google')
-            ?.closest('button');
-          if (engineButton) {
-            const rect = engineButton.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            createFireworkEffect(centerX, centerY);
-          }
-          return;
-        }
-      }
-
-      // 处理空格键
-      if (e.code === 'Space' || e.key === ' ' || e.keyCode === 32) {
-        // 判断当前聚焦元素是否是输入框/textarea/可编辑内容
-        const active = document.activeElement;
-        const isInput =
-          active &&
-          (active.tagName === 'INPUT' ||
-            active.tagName === 'TEXTAREA' ||
-            (active as HTMLElement).isContentEditable);
-
-        // 如果当前聚焦在搜索框上且输入框是空的，则退出聚焦状态
-        if (isInput && active === inputRef.current && searchQuery.trim() === '' && isFocused) {
-          e.preventDefault(); // 阻止输入空格
-          setIsFocused(false);
-          setIsHovered(false);
-          setIsSearchFocused(false);
-          inputRef.current?.blur(); // 失去焦点
-          return;
-        }
-
-        // 如果工作空间打开，让工作空间处理空格键逻辑，不在这里处理
-        if (isWorkspaceOpen) {
-          return;
-        }
-
-        // 如果当前不在输入框中，则聚焦搜索框
-        if (!isInput && inputRef.current) {
-          e.preventDefault(); // 阻止页面滚动
-          inputRef.current.focus();
-          setIsFocused(true);
-          setIsHovered(true); // 添加这行让搜索框变宽
-          setIsSearchFocused(true);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
-    return () =>
-      window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true } as any);
-  }, [setIsSearchFocused, searchQuery, isFocused, createFireworkEffect, isSettingsOpen, isWorkspaceOpen, showTodoModal]);
-
-  const engineList = [
-    { key: 'bing', label: 'Bing', icon: <i className="fa-brands fa-microsoft text-blue-400"></i> },
-    { key: 'google', label: 'Google', icon: <i className="fa-brands fa-google text-blue-500"></i> },
-  ];
-
-  // 切换搜索引擎并触发动画
-  const switchEngine = () => {
-    const idx = engineList.findIndex((e) => e.key === engine);
-    const newEngine = engineList[(idx + 1) % engineList.length].key as any;
-    setEngine(newEngine);
-
-    // 触发彩带动画 - 从搜索引擎按钮位置
-    const engineButton = document
-      .querySelector('.fa-brands.fa-microsoft, .fa-brands.fa-google')
-      ?.closest('button');
-    if (engineButton) {
-      const rect = engineButton.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      createFireworkEffect(centerX, centerY);
-    }
-  };
-
-  // 表情名称和图标 - 双层布局：内圈4个 + 外圈4个
   const emojiNames = [
     // 内圈（原有4个）
     'chatGPT', 'Gemini', 'Deepseek', 'Kimi',
@@ -503,6 +230,227 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       />
     </span>,
   ];
+
+  // TODO功能相关状态
+  const [showTodoModal, setShowTodoModal] = useState(false);
+  const [todoFeedback, setTodoFeedback] = useState<string | null>(null);
+
+  // 添加TODO到存储
+  const addTodoToStorage = (todoText: string) => {
+    const STORAGE_KEY = 'time-display-todos';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    let todos = [];
+
+    if (stored) {
+      try {
+        todos = JSON.parse(stored);
+      } catch {
+        todos = [];
+      }
+    }
+
+    const newTodo = {
+      id: Date.now().toString(),
+      text: todoText.trim(),
+      completed: false,
+      createdAt: Date.now(),
+      order: Math.max(0, ...todos.map((todo: any) => todo.order || 0)) + 1,
+    };
+
+    todos = [newTodo, ...todos].slice(0, 1000); // 限制为1000条
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+
+    // 显示反馈
+    setTodoFeedback(`已添加到TODO：${todoText}`);
+    setTimeout(() => setTodoFeedback(null), 3000);
+  };
+
+  // 创建彩带动画效果 - 使用真正多样的SVG形状
+  const createFireworkEffect = useCallback((centerX: number, centerY: number) => {
+    // 丰富的彩带颜色
+    const colors = [
+      '#FF6B6B',
+      '#4ECDC4',
+      '#45B7D1',
+      '#96CEB4',
+      '#FECA57',
+      '#FF9FF3',
+      '#54A0FF',
+      '#5F27CD',
+      '#00D2D3',
+      '#FF9F43',
+      '#EE5A24',
+      '#FD79A8',
+      '#0FB9B1',
+      '#A55EEA',
+      '#26D0CE',
+      '#FDCB6E',
+      '#6C5CE7',
+      '#74B9FF',
+      '#E17055',
+      '#F39C12',
+      '#E74C3C',
+      '#3498DB',
+      '#9B59B6',
+      '#1ABC9C',
+    ];
+
+    // 多样的SVG彩带形状路径 - 更小更多样的形状
+    const ribbonPaths = [
+      'M2,5 Q12,2 22,5 Q32,8 42,5 L42,8 Q32,11 22,8 Q12,5 2,8 Z',
+      'M20,2 L38,2 L29,12 Z',
+      'M20,7 A6,6 0,1,1 20,7.1 Z',
+      'M20,2 L30,7 L20,12 L10,7 Z',
+      'M20,2 L22,8 L28,8 L23,11 L25,17 L20,14 L15,17 L17,11 L12,8 L18,8 Z',
+      'M2,6 Q15,2 28,6 Q41,10 54,6 L54,9 Q41,13 28,9 Q15,5 2,9 Z',
+    ];
+
+    // 创建彩带
+    for (let i = 0; i < 30; i++) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+      const pathData = ribbonPaths[Math.floor(Math.random() * ribbonPaths.length)];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      const width = Math.random() * 25 + 15;
+      const height = Math.random() * 15 + 8;
+
+      svg.setAttribute('width', width.toString());
+      svg.setAttribute('height', height.toString());
+      svg.setAttribute('viewBox', '0 0 44 14');
+      svg.style.position = 'fixed';
+      svg.style.pointerEvents = 'none';
+      svg.style.zIndex = '9999';
+      svg.style.left = centerX + 'px';
+      svg.style.top = centerY + 'px';
+
+      path.setAttribute('d', pathData);
+      path.setAttribute('fill', color);
+      path.setAttribute('opacity', '0.9');
+
+      svg.appendChild(path);
+      document.body.appendChild(svg);
+
+      const angle = Math.random() * 360 * (Math.PI / 180);
+      const velocity = Math.random() * 4 + 2;
+      let vx = Math.cos(angle) * velocity;
+      let vy = Math.sin(angle) * velocity;
+      const rotationSpeed = (Math.random() - 0.5) * 80;
+      let rotation = Math.random() * 360;
+      let x = centerX - width / 2;
+      let y = centerY - height / 2;
+      const gravity = 0.2;
+      const friction = 0.998;
+      const startTime = Date.now();
+
+      const animate = () => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        vy += gravity;
+        vx *= friction;
+        vy *= friction;
+        x += vx;
+        y += vy;
+        rotation += rotationSpeed * (1 / 60);
+        svg.style.left = x + 'px';
+        svg.style.top = y + 'px';
+        svg.style.transform = `rotate(${rotation}deg)`;
+        const opacity = Math.max(0, 1 - elapsed / 7);
+        svg.style.opacity = opacity.toString();
+
+        if (opacity > 0 && y < window.innerHeight + 100) {
+          requestAnimationFrame(animate);
+        } else {
+          if (document.body.contains(svg)) {
+            document.body.removeChild(svg);
+          }
+        }
+      };
+
+      setTimeout(() => {
+        requestAnimationFrame(animate);
+      }, Math.random() * 150);
+    }
+  }, []);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+      if (emojiTooltipTimerRef.current) {
+        clearTimeout(emojiTooltipTimerRef.current);
+        emojiTooltipTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // 全局监听空格键，未聚焦输入框时聚焦搜索框
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 检查是否有阻止全局快捷键的模态框打开
+      // 工作空间模态框不应该阻止空格键，因为它有自己的搜索框
+      const shouldBlockGlobalShortcuts = isSettingsOpen || showTodoModal;
+
+      // 更精确地检查DOM中是否有其他需要阻止快捷键的模态框
+      // 检查是否存在模态框背景遮罩（通常使用fixed定位和高z-index）
+      const modalBackdrops = document.querySelectorAll('.fixed.inset-0');
+      const hasBlockingModalBackdrop = Array.from(modalBackdrops).some(el => {
+        const styles = window.getComputedStyle(el);
+        const zIndex = parseInt(styles.zIndex) || 0;
+        // 检查是否是需要阻止快捷键的模态框背景
+        // 排除工作空间和壁纸背景
+        return zIndex >= 40 &&
+          !el.classList.contains('wallpaper') &&
+          !el.querySelector('img') && // 不包含图片（排除壁纸）
+          styles.display !== 'none' &&
+          !el.closest('[data-workspace-modal]'); // 排除工作空间模态框
+      });
+
+      if (shouldBlockGlobalShortcuts || hasBlockingModalBackdrop) {
+        return; // 有阻止性模态框打开时，不处理快捷键
+      }
+
+      // 处理空格键
+      if (e.code === 'Space' || e.key === ' ' || e.keyCode === 32) {
+        // 判断当前聚焦元素是否是输入框/textarea/可编辑内容
+        const active = document.activeElement;
+        const isInput =
+          active &&
+          (active.tagName === 'INPUT' ||
+            active.tagName === 'TEXTAREA' ||
+            (active as HTMLElement).isContentEditable);
+
+        // 如果当前聚焦在搜索框上且输入框是空的，则退出聚焦状态
+        if (isInput && active === inputRef.current && searchQuery.trim() === '' && isFocused) {
+          e.preventDefault(); // 阻止输入空格
+          setIsFocused(false);
+          setIsHovered(false);
+          setIsSearchFocused(false);
+          inputRef.current?.blur(); // 失去焦点
+          return;
+        }
+
+        // 如果工作空间打开，让工作空间处理空格键逻辑，不在这里处理
+        if (isWorkspaceOpen) {
+          return;
+        }
+
+        // 如果当前不在输入框中，则聚焦搜索框
+        if (!isInput && inputRef.current) {
+          e.preventDefault(); // 阻止页面滚动
+          inputRef.current.focus();
+          setIsFocused(true);
+          setIsHovered(true); // 添加这行让搜索框变宽
+          setIsSearchFocused(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown, { capture: true });
+    return () =>
+      window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true } as any);
+  }, [setIsSearchFocused, searchQuery, isFocused, isSettingsOpen, isWorkspaceOpen, showTodoModal]);
 
   const getSearchUrl = (engine: string, query: string) => {
     switch (engine) {
@@ -1336,7 +1284,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         // 常规搜索
         const queryToSearch = selectedSuggestion?.query || searchQuery;
         if (queryToSearch.trim()) {
-          performSearchWithStats(engine, queryToSearch);
+          performSearchWithStats(searchEngine, queryToSearch);
           setSearchQuery('');
           setShowSuggestions(false);
           setWebsiteSuggestions([]);
@@ -1445,7 +1393,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         setWebsiteSuggestions([]);
       } else {
         // 搜索引擎搜索
-        performSearchWithStats(engine, queryToSearch);
+        performSearchWithStats(searchEngine, queryToSearch);
         setSearchQuery('');
         setShowSuggestions(false);
         setWebsiteSuggestions([]);
@@ -1505,7 +1453,6 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
       <div
         className="relative left-0 right-0 z-20 flex justify-center px-4 select-none"
-        style={{ transform: 'translateX(-47px)' }}
       >
         <motion.div
           className="w-full flex justify-center"
@@ -1550,45 +1497,6 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                 /* Animation complete */
               }}
             >
-              {/* 搜索引擎切换按钮和“搜索”字样 */}
-              <div className="relative flex items-center">
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.9, filter: 'brightness(0.8)' }}
-                  className="flex items-center gap-2 px-1.5 py-1 text-white/80 hover:text-white bg-transparent border-none outline-none text-lg select-none relative z-20"
-                  style={{
-                    pointerEvents: 'auto',
-                    height: 36,
-                    minWidth: 36,
-                    minHeight: 36,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    display: 'flex',
-                  }}
-                  tabIndex={-1}
-                  onClick={() => {
-                    switchEngine();
-                  }}
-                  onMouseEnter={() => setShowEngineTooltip(true)}
-                  onMouseLeave={() => setShowEngineTooltip(false)}
-                >
-                  {engineList.find((e) => e.key === engine)?.icon}
-                  <span className="hidden sm:inline text-base font-semibold select-none">
-                    {engineList.find((e) => e.key === engine)?.label}
-                  </span>
-                </motion.button>
-
-                {/* 自定义美观的 tooltip */}
-                {showEngineTooltip && (
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm border border-white/10 whitespace-nowrap z-30">
-                    切换至 {engine === 'bing' ? 'Google' : 'Bing'}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-800/90"></div>
-                  </div>
-                )}
-              </div>
-              {/* 分隔符 */}
-              <span className="mx-2 text-white/30 select-none font-normal text-base z-10">|</span>
-              <span className="text-white/60 select-none font-normal text-base z-10"></span>
               <div className="relative flex-1">
                 <input
                   ref={inputRef}
@@ -1653,8 +1561,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                       setIsHovered(false);
                     }, 150);
                   }}
-                  placeholder="🧸搜点啥捏..."
-                  className="backdrop-blur-md border border-white/20 pl-4 py-2 text-white placeholder-white/60 outline-none text-base transition-all duration-200 pr-12 w-full ml-3"
+                  placeholder="搜点啥捏..."
+                  className="backdrop-blur-md border border-white/20 pl-4 py-2 text-white placeholder-white/60 outline-none text-base transition-all duration-200 pr-12 w-full rounded-lg"
                   style={{
                     backgroundColor: `rgba(${searchBarColor}, ${searchBarOpacity})`,
                     minWidth: '4rem',
@@ -1667,7 +1575,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                 <AnimatePresence>
                   {showSuggestions && (websiteSuggestions.length > 0 || workspaceSuggestions.length > 0 || suggestions.length > 0) && (
                     <motion.div
-                      className={`absolute top-full left-3 right-0 mt-2 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-30 overflow-y-auto custom-scrollbar ${isMobile ? 'max-h-72' : 'max-h-96'
+                      className={`absolute top-full left-0 right-0 mt-2 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-30 overflow-y-auto custom-scrollbar ${isMobile ? 'max-h-72' : 'max-h-96'
                         }`}
                       initial={{ opacity: 0, y: -10, scaleY: 0.8 }}
                       animate={{ opacity: 1, y: 0, scaleY: 1 }}
@@ -2176,7 +2084,6 @@ function SearchBarComponent(props: SearchBarProps = {}) {
               <motion.button
                 ref={searchBtnRef}
                 type="submit"
-                whileTap={{ scale: 0.9, filter: 'brightness(0.8)' }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-white/70 hover:text-white transition-colors bg-transparent border-none outline-none group select-none"
                 style={{ pointerEvents: 'auto' }}
               >
@@ -2209,8 +2116,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                         left: '50%',
                         top: '50%',
                         transform: 'translate(-50%, -50%)',
-                        width: 230, // 覆盖整个AI图标扇形区域（外圈90px + padding）
-                        height: 230,
+                        width: 260, // 覆盖整个AI图标扇形区域（外圈100px + padding）
+                        height: 260,
                         borderRadius: '50%',
                         pointerEvents: 'auto',
                         zIndex: 1,
@@ -2226,14 +2133,18 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                       {emojiList.map((emoji, i) => {
                         // 双层布局：前4个为内圈，后4个为外圈
                         const isInnerCircle = i < 4; // 前4个是内圈
-                        const N = isInnerCircle ? 4 : 4; // 每层4个图标
+                        const N = 4; // 每层4个图标
                         const layerIndex = isInnerCircle ? i : i - 4; // 当前层的索引
 
-                        // 内圈半径52px，外圈半径90px（放大后增加间距）
-                        const r = isInnerCircle ? 52 : 90;
+                        // iOS风格间距：内圈半径60px，外圈半径100px
+                        // 确保1.38x悬停放大时不会遮挡相邻图标
+                        const r = isInnerCircle ? 60 : 100;
 
-                        // -60°到60°扇形分布
-                        const angle = (-60 + (120 / (N - 1)) * layerIndex) * (Math.PI / 180);
+                        // 内圈-70°到70°（140°），外圈-55°到55°（110°）
+                        // 弧长距离：内圈≈49px，外圈≈64px（iOS风格等弧长分布）
+                        const angleRange = isInnerCircle ? 140 : 110;
+                        const startAngle = -angleRange / 2;
+                        const angle = (startAngle + (angleRange / (N - 1)) * layerIndex) * (Math.PI / 180);
                         const x = r * Math.cos(angle);
                         const y = r * Math.sin(angle);
                         const rectHeight = 19;
@@ -2246,7 +2157,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                             initial={{ x: 0, y: 0, scale: 0.3, opacity: 0 }}
                             animate={{ x, y, scale: 1.18, opacity: 1 }}
                             whileHover={{
-                              scale: 1.38,
+                              scale: 1.38, // 恢复原有17%放大效果，配合iOS风格间距调整
                               transition: {
                                 type: 'spring',
                                 stiffness: animationStyle === 'dynamic' ? 800 : 500,
@@ -2279,9 +2190,23 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                 clearTimeout(hoverTimerRef.current);
                                 hoverTimerRef.current = null;
                               }
-                              setHoveredEmojiIdx(i);
+                              // 清除之前的tooltip定时器
+                              if (emojiTooltipTimerRef.current) {
+                                clearTimeout(emojiTooltipTimerRef.current);
+                              }
+                              // 延迟1秒显示文字提示
+                              emojiTooltipTimerRef.current = setTimeout(() => {
+                                setHoveredEmojiIdx(i);
+                              }, 1000);
                             }}
-                            onMouseLeave={() => setHoveredEmojiIdx(null)}
+                            onMouseLeave={() => {
+                              // 清除tooltip定时器
+                              if (emojiTooltipTimerRef.current) {
+                                clearTimeout(emojiTooltipTimerRef.current);
+                                emojiTooltipTimerRef.current = null;
+                              }
+                              setHoveredEmojiIdx(null);
+                            }}
                           >
                             {/* 圆形背景 - 纯模糊效果，无实色背景 */}
                             <div

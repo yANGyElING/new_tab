@@ -2,17 +2,15 @@ import { useState, useRef, useEffect, memo } from 'react';
 import { motion } from 'framer-motion';
 import CardEditModal from '@/components/CardEditModal';
 import SyncStatusIndicator from '@/components/SyncStatusIndicator';
-import AuthForm from '@/components/AuthForm';
 import PrivacySettings from '@/components/PrivacySettings';
 import ConfirmModal from '@/components/ConfirmModal';
 import { ColorPicker } from '@/components/ColorPicker';
 import UserStatsDisplay from '@/components/UserStatsDisplay';
 import { userStatsManager } from '@/hooks/useUserStats';
-import { useTransparency, WallpaperResolution } from '@/contexts/TransparencyContext';
+import { useTransparency, WallpaperResolution, SearchEngine } from '@/contexts/TransparencyContext';
 import { customWallpaperManager } from '@/lib/customWallpaperManager';
 import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useSyncStatus } from '@/contexts/SyncContext';
-import { useUserProfile } from '@/contexts/UserProfileContext';
 import {
   WebsiteData,
   UserSettings,
@@ -38,17 +36,8 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string>('');
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [nameError, setNameError] = useState('');
-  const [nameLoading, setNameLoading] = useState(false);
   const [isFixingIcons, setIsFixingIcons] = useState(false);
   const [fixIconsMessage, setFixIconsMessage] = useState('');
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
 
   // 自定义壁纸相关状态
   const [customWallpaperInfo, setCustomWallpaperInfo] = useState<{
@@ -125,16 +114,12 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     setWorkCountdownEnabled,
     setLunchTime,
     setOffWorkTime,
+    searchEngine,
+    setSearchEngine,
   } = useTransparency();
-  const { currentUser, logout, updatePassword } = useAuth();
+  const { currentUser } = useAuth();
   const { updateSyncStatus } = useSyncStatus();
-  const { displayName, updateDisplayName } = useUserProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 当 displayName 更新时，同步更新 newName
-  useEffect(() => {
-    setNewName(displayName || '');
-  }, [displayName]);
 
   // 记录非自定义模式下的分辨率选择
   useEffect(() => {
@@ -384,94 +369,6 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
       setSyncMessage('❌ 下载失败，请重试');
       setTimeout(() => setSyncMessage(''), 3000);
     }
-  };
-
-  // 处理用户名保存
-  const handleSaveName = async () => {
-    if (!newName.trim()) {
-      setNameError('用户名不能为空');
-      return;
-    }
-
-    if (newName.length < 2 || newName.length > 20) {
-      setNameError('用户名长度需在2-20个字符之间');
-      return;
-    }
-
-    if (!/^[a-zA-Z0-9\u4e00-\u9fa5_-]+$/.test(newName)) {
-      setNameError('用户名只能包含字母、数字、中文、下划线和短横线');
-      return;
-    }
-
-    setNameLoading(true);
-    setNameError('');
-
-    try {
-      const success = await updateDisplayName(newName);
-      if (success) {
-        setIsEditingName(false);
-        alert('用户名更新成功！');
-      } else {
-        setNameError('更新失败，请重试');
-      }
-    } catch (error) {
-      setNameError('更新失败，请重试');
-      console.error('更新用户名失败:', error);
-    } finally {
-      setNameLoading(false);
-    }
-  };
-
-  // 处理用户名取消编辑
-  const handleCancelName = () => {
-    setNewName(displayName || '');
-    setIsEditingName(false);
-    setNameError('');
-  };
-
-  // 处理密码修改
-  const handleChangePassword = async () => {
-    setPasswordError('');
-
-    // 验证密码
-    if (!newPassword || !confirmPassword) {
-      setPasswordError('请填写完整密码信息');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setPasswordError('密码至少需要6位字符');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('两次输入的密码不一致');
-      return;
-    }
-
-    setPasswordLoading(true);
-
-    try {
-      await updatePassword(newPassword);
-      // 成功后重置表单
-      setNewPassword('');
-      setConfirmPassword('');
-      setShowChangePassword(false);
-      alert('✅ 密码修改成功！');
-    } catch (error) {
-      console.error('修改密码失败:', error);
-      setPasswordError((error as Error).message || '修改密码失败，请重试');
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  // 取消密码���改
-  const handleCancelChangePassword = () => {
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
-    setShowChangePassword(false);
   };
 
   // 设置页面打开时暂时关闭视差
@@ -726,294 +623,36 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center select-none">
-      {/* 背景遮罩 - 增强模糊效果 */}
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/50 to-black/60 backdrop-blur-sm"
+    <div className="fixed inset-0 z-50 flex justify-end select-none">
+      {/* 背景遮罩 */}
+      <motion.div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
         onClick={handleClose}
       />
 
+      {/* 右侧抽屉面板 */}
       <motion.div
-        className="w-[420px] bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 z-50 max-h-[85vh] flex flex-col select-none overflow-hidden"
-        initial={{ scale: 0.8, opacity: 0, y: 20 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.8, opacity: 0, y: 20 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+        className="w-[480px] h-full bg-[#F2F2F7] dark:bg-gray-900 backdrop-blur-sm shadow-2xl border-l border-gray-200 dark:border-gray-700 z-50 flex flex-col select-none overflow-hidden"
+        initial={{ x: '100%' }}
+        animate={{ x: 0 }}
+        exit={{ x: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       >
         {/* 简洁的顶部标题栏 */}
         <div className="p-6 pb-0 select-none">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-medium text-gray-800 select-none">设置</h2>
-            <button onClick={handleClose} className="text-gray-500 hover:text-gray-700 select-none">
+            <h2 className="text-xl font-medium text-gray-800 dark:text-gray-100 select-none">设置</h2>
+            <button onClick={handleClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 select-none">
               <i className="fa-solid fa-xmark text-lg select-none"></i>
             </button>
           </div>
         </div>
         {/* 主要内容区域 - 优化滚动和间距 */}
         <div className="flex-1 px-6 py-4 pb-6 space-y-8 overflow-y-auto select-none custom-scrollbar">
-          {/* 账号管理部分 - 现代化设计 */}
-          <div className="space-y-5 select-none settings-section">
-            <div className="flex items-center gap-3 select-none">
-              <div className="w-6 h-6 bg-gradient-to-br from-emerald-400 to-green-500 rounded-lg flex items-center justify-center">
-                <i className="fa-solid fa-user text-white text-xs"></i>
-              </div>
-              <h3 className="text-base font-semibold text-gray-800 select-none">账号管理</h3>
-              <div className="flex-1 h-px bg-gradient-to-r from-gray-200 to-transparent"></div>
-            </div>
-
-            {currentUser ? (
-              <div className="space-y-4">
-                {/* 用户信息卡片 - 现代化升级版 */}
-                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                  <div>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="relative">
-                        <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
-                          <i className="fa-solid fa-cat text-white text-2xl"></i>
-                        </div>
-                        <div
-                          className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white shadow-sm ${currentUser.email_confirmed_at ? 'bg-white' : 'bg-white'
-                            }`}
-                        >
-                          <i
-                            className={`fa-solid ${currentUser.email_confirmed_at
-                              ? 'fa-envelope-circle-check text-emerald-500'
-                              : 'fa-envelope-open text-amber-500'
-                              } text-xs flex items-center justify-center w-full h-full`}
-                          ></i>
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        {isEditingName ? (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={newName}
-                              onChange={(e) => setNewName(e.target.value)}
-                              className="w-full px-2 py-1 text-lg font-semibold border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                              placeholder="请输入用户名"
-                              maxLength={20}
-                              disabled={nameLoading}
-                              autoFocus
-                            />
-
-                            {nameError && (
-                              <p className="text-xs text-red-600 select-none">{nameError}</p>
-                            )}
-
-                            <div className="flex space-x-2 select-none">
-                              <button
-                                onClick={handleSaveName}
-                                disabled={nameLoading || !newName.trim()}
-                                className="text-xs bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 disabled:bg-gray-400 text-white px-2 py-1 rounded select-none"
-                              >
-                                {nameLoading ? (
-                                  <>
-                                    <i className="fa-solid fa-spinner fa-spin mr-1 select-none"></i>
-                                    <span className="select-none">保存中...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <i className="fa-solid fa-check mr-1 select-none"></i>
-                                    <span className="select-none">保存</span>
-                                  </>
-                                )}
-                              </button>
-                              <button
-                                onClick={handleCancelName}
-                                disabled={nameLoading}
-                                className="text-xs bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded select-none"
-                              >
-                                <i className="fa-solid fa-times mr-1 select-none"></i>
-                                <span className="select-none">取消</span>
-                              </button>
-                            </div>
-
-                            <p className="text-xs text-gray-500 select-none">
-                              支持中文、英文、数字、下划线和短横线，2-20个字符
-                            </p>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setIsEditingName(true)}
-                            className="text-left hover:bg-blue-50/50 rounded-lg p-1 transition-colors duration-200 group w-full"
-                          >
-                            <div className="text-lg font-semibold text-slate-800 mb-1 group-hover:text-blue-700 transition-colors duration-200 select-none">
-                              {displayName || '用户'}
-                              <i className="fa-solid fa-edit text-xs text-gray-400 opacity-0 group-hover:opacity-100 group-hover:text-blue-500 transition-all duration-200 ml-2 select-none"></i>
-                            </div>
-                          </button>
-                        )}
-                        <div className="flex items-center gap-2 mt-2 select-none">
-                          <div
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium select-none ${currentUser.email_confirmed_at
-                              ? 'bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 border border-emerald-300'
-                              : 'bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 border border-amber-300'
-                              }`}
-                          >
-                            <i
-                              className={`fa-solid ${currentUser.email_confirmed_at ? 'fa-shield-check' : 'fa-envelope'
-                                } text-xs ${currentUser.email_confirmed_at
-                                  ? 'text-emerald-500'
-                                  : 'text-amber-500'
-                                } select-none`}
-                            ></i>
-                            <span className="select-none">
-                              {currentUser.email_confirmed_at ? '邮箱已验证' : '待验证邮箱'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 邮箱信息显示 */}
-                    <div className="border-t border-blue-200/50 pt-3 select-none">
-                      <div className="flex items-center justify-between select-none">
-                        <div className="flex items-center space-x-2 select-none">
-                          <i className="fa-solid fa-envelope text-indigo-500 text-sm select-none"></i>
-                          <span className="text-xs text-gray-600 select-none">
-                            {currentUser.email}
-                          </span>
-                        </div>
-                        <i
-                          className="fa-solid fa-check-circle text-green-500 text-xs select-none"
-                          title="邮箱已验证"
-                        ></i>
-                      </div>
-                    </div>
-
-                    {/* 密码修改区域 */}
-                    <div className="mt-4 pt-4 border-t border-blue-200/50 select-none">
-                      {!showChangePassword ? (
-                        <button
-                          onClick={() => setShowChangePassword(true)}
-                          className="group flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800 transition-all duration-200 select-none"
-                        >
-                          <div className="w-6 h-6 rounded-lg bg-slate-100 group-hover:bg-slate-200 flex items-center justify-center transition-colors duration-200 select-none">
-                            <i className="fa-solid fa-key text-xs select-none"></i>
-                          </div>
-                          <span className="font-medium select-none">修改密码</span>
-                          <i className="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none"></i>
-                        </button>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <i className="fa-solid fa-key text-blue-500 text-sm"></i>
-                              <span className="text-sm font-medium text-gray-700 select-none">修改密码</span>
-                            </div>
-                            <button
-                              onClick={handleCancelChangePassword}
-                              className="text-xs text-gray-500 hover:text-gray-700"
-                            >
-                              <i className="fa-solid fa-times"></i>
-                            </button>
-                          </div>
-
-                          {passwordError && (
-                            <div className="p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-600">
-                              {passwordError}
-                            </div>
-                          )}
-
-                          <div>
-                            <input
-                              type="password"
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                              placeholder="请输入新密码（至少6位）"
-                              disabled={passwordLoading}
-                            />
-                          </div>
-
-                          <div>
-                            <input
-                              type="password"
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
-                              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                              placeholder="请再次输入新密码"
-                              disabled={passwordLoading}
-                            />
-                          </div>
-
-                          <div className="flex gap-2">
-                            <button
-                              onClick={handleChangePassword}
-                              disabled={passwordLoading || !newPassword || !confirmPassword}
-                              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 disabled:from-gray-400 disabled:to-gray-500 text-white text-sm rounded-lg transition-all duration-200 select-none"
-                            >
-                              {passwordLoading ? (
-                                <>
-                                  <i className="fa-solid fa-spinner fa-spin text-xs"></i>
-                                  <span>修改中...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <i className="fa-solid fa-check text-xs"></i>
-                                  <span>确认修改</span>
-                                </>
-                              )}
-                            </button>
-                            <button
-                              onClick={handleCancelChangePassword}
-                              disabled={passwordLoading}
-                              className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm rounded-lg transition-colors select-none"
-                            >
-                              取消
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 优雅的退出登录 */}
-                    <div className="mt-4 pt-4 border-t border-blue-200/50 select-none">
-                      <button
-                        onClick={async () => {
-                          try {
-                            await logout();
-                            handleClose(); // 登出后关闭设置面板
-                          } catch (error) {
-                            console.error('登出失败:', error);
-                          }
-                        }}
-                        className="group flex items-center gap-2 text-sm text-slate-600 hover:text-slate-800 transition-all duration-200 select-none"
-                      >
-                        <div className="w-6 h-6 rounded-lg bg-slate-100 group-hover:bg-slate-200 flex items-center justify-center transition-colors duration-200 select-none">
-                          <i className="fa-solid fa-arrow-right-from-bracket text-xs select-none"></i>
-                        </div>
-                        <span className="font-medium select-none">退出登录</span>
-                        <i className="fa-solid fa-arrow-right text-xs opacity-0 group-hover:opacity-100 transition-opacity duration-200 select-none"></i>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                <div>
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                      <i className="fa-solid fa-cat text-white text-xl"></i>
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-lg font-semibold text-slate-800 mb-1 select-none">
-                        账号登录
-                      </div>
-                      <div className="text-sm text-slate-600 select-none">
-                        登录后可同步数据到云端
-                      </div>
-                    </div>
-                  </div>
-
-                  <AuthForm onSuccess={handleClose} />
-                </div>
-              </div>
-            )}
-          </div>
-
           <div className="space-y-5 select-none settings-section">
             <div className="flex items-center gap-3 select-none">
               <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-lg flex items-center justify-center">
@@ -1319,6 +958,35 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               </div>
 
               <div className="border-t border-gray-100"></div>
+
+              {/* 搜索引擎选择 */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <i className="fa-solid fa-magnifying-glass text-blue-500 text-sm"></i>
+                  <span className="text-sm font-medium text-gray-700 select-none">
+                    默认搜索引擎
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { value: 'bing' as const, label: 'Bing', icon: 'fa-brands fa-microsoft' },
+                    { value: 'google' as const, label: 'Google', icon: 'fa-brands fa-google' },
+                  ].map((engine) => (
+                    <button
+                      key={engine.value}
+                      onClick={() => setSearchEngine(engine.value)}
+                      className={`flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border-2 transition-all duration-200 select-none ${
+                        searchEngine === engine.value
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                          : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <i className={`${engine.icon} text-sm`}></i>
+                      <span className="text-sm font-medium">{engine.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="border-t border-gray-100"></div>
 

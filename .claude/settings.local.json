@@ -42,7 +42,10 @@
       "mcp__desktop-commander__get_file_info",
       "Skill(gemini)",
       "mcp__desktop-commander__read_multiple_files",
-      "Bash(pnpm run build:*)"
+      "Bash(pnpm run build:*)",
+      "Bash(dir:*)",
+      "mcp__desktop-commander__write_file",
+      "Bash(uv run:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

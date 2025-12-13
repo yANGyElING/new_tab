@@ -2,6 +2,8 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 
 export type WallpaperResolution = '4k' | '1080p' | '720p' | 'mobile' | 'custom';
 
+export type SearchEngine = 'bing' | 'google' | 'baidu' | 'duckduckgo';
+
 export type ColorOption = {
   name: string;
   rgb: string; // RGB值，如 "0, 0, 0"
@@ -45,6 +47,7 @@ interface TransparencyContextType {
   workCountdownEnabled: boolean; // 下班倒计时开关
   lunchTime: string; // 午休时间 HH:mm
   offWorkTime: string; // 下班时间 HH:mm
+  searchEngine: SearchEngine; // 默认搜索引擎
   setCardOpacity: (opacity: number) => void;
   setSearchBarOpacity: (opacity: number) => void;
   setParallaxEnabled: (enabled: boolean) => void;
@@ -70,6 +73,7 @@ interface TransparencyContextType {
   setWorkCountdownEnabled: (enabled: boolean) => void;
   setLunchTime: (time: string) => void;
   setOffWorkTime: (time: string) => void;
+  setSearchEngine: (engine: SearchEngine) => void;
 }
 
 const TransparencyContext = createContext<TransparencyContextType | undefined>(undefined);
@@ -216,6 +220,12 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     return saved || '18:00'; // 默认下班时间
   });
 
+  // 搜索引擎设置
+  const [searchEngine, setSearchEngine] = useState<SearchEngine>(() => {
+    const saved = localStorage.getItem('searchEngine') as SearchEngine;
+    return saved || 'bing'; // 默认使用Bing
+  });
+
   // 初始化autoSortEnabled从localStorage
   useEffect(() => {
     try {
@@ -320,6 +330,10 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('offWorkTime', offWorkTime);
   }, [offWorkTime]);
 
+  useEffect(() => {
+    localStorage.setItem('searchEngine', searchEngine);
+  }, [searchEngine]);
+
   return (
     <TransparencyContext.Provider
       value={{
@@ -348,6 +362,7 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
         workCountdownEnabled,
         lunchTime,
         offWorkTime,
+        searchEngine,
         setCardOpacity,
         setSearchBarOpacity,
         setParallaxEnabled,
@@ -373,6 +388,7 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
         setWorkCountdownEnabled,
         setLunchTime,
         setOffWorkTime,
+        setSearchEngine,
       }}
     >
       {children}
