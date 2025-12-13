@@ -56,6 +56,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
   const [hoveredEmojiIdx, setHoveredEmojiIdx] = useState<number | null>(null);
   const [showEngineTooltip, setShowEngineTooltip] = useState(false);
   const searchBarRef = useRef<HTMLFormElement>(null);
+  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // TODO功能相关状态
   const [showTodoModal, setShowTodoModal] = useState(false);
@@ -196,6 +197,16 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         requestAnimationFrame(animate);
       }, Math.random() * 150);
     }
+  }, []);
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+    };
   }, []);
 
   // 全局监听空格键，未聚焦输入框时聚焦搜索框
@@ -343,8 +354,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -354,7 +365,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/chatgpt.svg'}
         alt="chatGPT"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
     <span
@@ -362,8 +373,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -373,7 +384,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/gemini.svg'}
         alt="Gemini"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
     <span
@@ -381,8 +392,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -392,7 +403,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/deepseek.svg'}
         alt="Deepseek"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
     <span
@@ -400,8 +411,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -411,7 +422,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/kimi.svg'}
         alt="Kimi"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
     // 外圈新增图标
@@ -420,8 +431,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -431,7 +442,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/grok.svg'}
         alt="Grok"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
     <span
@@ -439,8 +450,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -450,7 +461,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/claude.svg'}
         alt="Claude"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
     <span
@@ -458,8 +469,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -469,7 +480,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/zhipu.svg'}
         alt="Zhipu"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
     <span
@@ -477,8 +488,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 22,
-        height: 22,
+        width: 26,
+        height: 26,
         verticalAlign: 'middle',
         position: 'relative',
         top: '1px',
@@ -488,7 +499,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
       <img
         src={import.meta.env.BASE_URL + 'icon/qwen.svg'}
         alt="Qwen"
-        style={{ width: 20, height: 20, display: 'block', userSelect: 'none' }}
+        style={{ width: 24, height: 24, display: 'block', userSelect: 'none' }}
       />
     </span>,
   ];
@@ -1507,18 +1518,26 @@ function SearchBarComponent(props: SearchBarProps = {}) {
             onSubmit={handleSearch}
             className="relative flex items-center justify-center"
             onMouseEnter={() => {
+              // 清除任何待执行的关闭定时器
+              if (hoverTimerRef.current) {
+                clearTimeout(hoverTimerRef.current);
+                hoverTimerRef.current = null;
+              }
               setIsHovered(true);
             }}
             onMouseLeave={() => {
               // 只有在未聚焦状态下才缩短搜索框
               if (!isFocused) {
-                setIsHovered(false);
-                // 建议保持显示，只有取消聚焦时才隐藏
+                // 延迟350ms关闭，给用户移动鼠标到AI图标的时间
+                hoverTimerRef.current = setTimeout(() => {
+                  setIsHovered(false);
+                  hoverTimerRef.current = null;
+                }, 350);
               }
             }}
           >
             <motion.div
-              animate={{ width: isHovered ? (isMobile ? 320 : 520) : isMobile ? 280 : 340 }}
+              animate={{ width: isHovered ? (isMobile ? 300 : 420) : isMobile ? 280 : 340 }}
               initial={{ width: isMobile ? 280 : 340 }}
               transition={{
                 type: 'spring',
@@ -2179,10 +2198,30 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                       top: 'calc(50% - 20px)', // 向上调整20px
                       width: 0,
                       height: 0,
-                      pointerEvents: 'auto',
+                      pointerEvents: 'none', // 容器不捕获鼠标事件
                       transform: 'translate(-50%, -50%)',
                     }}
                   >
+                    {/* 透明桥梁区域：连接搜索按钮和AI图标，避免鼠标移动时触发关闭 */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: '50%',
+                        top: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: 230, // 覆盖整个AI图标扇形区域（外圈90px + padding）
+                        height: 230,
+                        borderRadius: '50%',
+                        pointerEvents: 'auto',
+                        zIndex: 1,
+                      }}
+                      onMouseEnter={() => {
+                        if (hoverTimerRef.current) {
+                          clearTimeout(hoverTimerRef.current);
+                          hoverTimerRef.current = null;
+                        }
+                      }}
+                    />
                     <div style={{ position: 'absolute', left: 0, top: 0 }}>
                       {emojiList.map((emoji, i) => {
                         // 双层布局：前4个为内圈，后4个为外圈
@@ -2190,8 +2229,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                         const N = isInnerCircle ? 4 : 4; // 每层4个图标
                         const layerIndex = isInnerCircle ? i : i - 4; // 当前层的索引
 
-                        // 内圈半径44px，外圈半径75px
-                        const r = isInnerCircle ? 44 : 75;
+                        // 内圈半径52px，外圈半径90px（放大后增加间距）
+                        const r = isInnerCircle ? 52 : 90;
 
                         // -60°到60°扇形分布
                         const angle = (-60 + (120 / (N - 1)) * layerIndex) * (Math.PI / 180);
@@ -2224,14 +2263,24 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                               position: 'absolute',
                               left: 0,
                               top: 0,
-                              fontSize: 22,
+                              fontSize: 26,
                               cursor: 'pointer',
                               userSelect: 'none',
                               zIndex: hoveredEmojiIdx === i ? 100 : 2,
                               willChange: 'filter, transform',
+                              pointerEvents: 'auto', // emoji 本身可以交互
+                              padding: '10px', // 扩大交互区域
+                              margin: '-10px', // 补偿padding，保持视觉位置不变
                             }}
                             onClick={() => window.open(emojiLinks[i], '_blank')}
-                            onMouseEnter={() => setHoveredEmojiIdx(i)}
+                            onMouseEnter={() => {
+                              // 清除关闭定时器，保持AI图标显示
+                              if (hoverTimerRef.current) {
+                                clearTimeout(hoverTimerRef.current);
+                                hoverTimerRef.current = null;
+                              }
+                              setHoveredEmojiIdx(i);
+                            }}
                             onMouseLeave={() => setHoveredEmojiIdx(null)}
                           >
                             {/* 圆形背景 - 纯模糊效果，无实色背景 */}
@@ -2242,8 +2291,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                 left: '50%',
                                 top: '60%',
                                 transform: 'translate(-50%, -50%)',
-                                width: 25,
-                                height: 25,
+                                width: 30,
+                                height: 30,
                                 borderRadius: '50%',
                                 backgroundColor: `rgba(${searchBarColor}, ${searchBarOpacity})`,
                                 border: '1px solid rgba(255, 255, 255, 0.2)',

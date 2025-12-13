@@ -1,0 +1,11 @@
+# 项目概览
+- 名称：Jiang's Tab / AiWeb new_tab，React + TypeScript + Vite 单页应用。
+- 目标：提供可定制的浏览器起始页/工作台，包含全局搜索、书签/工作空间管理、壁纸和 Supabase 同步等功能。
+- 主要技术：React 18、TypeScript 5、Vite 6、TailwindCSS、Framer Motion、Supabase、React DnD、Recharts。
+- 运行环境：Node >=18，pnpm 8；默认端口 3000，命令使用 PowerShell。
+- 目录要点：
+  - src/components 主要 UI 组件（包含 SearchBar、Workspace 等）。
+  - src/contexts 提供状态（Transparency、Workspace、UserProfile 等）。
+  - src/hooks 实用自定义 hooks。
+  - supabase/functions 边缘函数；public 静态资源；api/cors-proxy 额外服务。
+- 依赖管理：pnpm，锁文件 pnpm-lock.yaml；未发现测试框架配置。

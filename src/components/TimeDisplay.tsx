@@ -142,7 +142,7 @@ export function TimeDisplay() {
   return (
     <div
       className="absolute left-0 right-0 z-5 flex justify-center px-4 select-none pointer-events-none"
-      style={{ top: '-45px' }} // 向下移动到-45px
+      style={{ top: '-16.5vh' }} // 在搜索框和顶部的中间位置（搜索框在33vh，中间为16.5vh）
     >
       <motion.div
         className="w-full flex justify-center"
@@ -163,7 +163,12 @@ export function TimeDisplay() {
           }}
         >
           <div
-            className="text-white/80 font-mono text-4xl font-semibold tracking-wide mb-1 drop-shadow-sm cursor-pointer hover:text-white/90 transition-all duration-200 hover:scale-105 pointer-events-auto time-display-clickable select-none"
+            className="text-white/80 tracking-wide mb-1 drop-shadow-sm cursor-pointer hover:text-white/90 transition-all duration-200 hover:scale-105 pointer-events-auto time-display-clickable select-none"
+            style={{
+              fontSize: '4em',
+              fontWeight: 400,
+              fontFamily: '-apple-system, system-ui, Ubuntu, Roboto, "Open Sans", "Segoe UI", "Helvetica Neue"'
+            }}
             onClick={handleTimeClick}
           >
             {(() => {
