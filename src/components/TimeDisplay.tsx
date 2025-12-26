@@ -144,7 +144,7 @@ export function TimeDisplay() {
   return (
     <div
       className="absolute left-0 right-0 z-5 flex justify-center px-4 select-none pointer-events-none"
-      style={{ top: '-45px' }} // 向下移动到-45px
+      style={{ top: isMobile ? '-65px' : '-45px' }} // 向下移动到-45px
     >
       <motion.div
         className="w-full flex justify-center"

@@ -425,7 +425,7 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
       userInfo: isMobile ? 'fixed top-2 right-2 z-40 scale-90' : 'fixed top-4 right-4 z-40',
       workspaceButton: isMobile ? 'fixed top-2 left-2 z-40 scale-90' : 'fixed top-4 left-4 z-40',
       settingsButton: isMobile
-        ? 'fixed bottom-4 right-4 z-[9999] p-3 bg-white/15 rounded-full backdrop-blur-md min-w-[44px] min-h-[44px] flex items-center justify-center'
+        ? 'fixed bottom-4 right-4 z-[9999] p-3'
         : 'fixed bottom-4 right-4 z-[9999]',
     };
   };

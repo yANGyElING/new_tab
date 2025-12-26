@@ -1538,8 +1538,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
             }}
           >
             <motion.div
-              animate={{ width: isHovered ? (isMobile ? 320 : 520) : isMobile ? 280 : 340 }}
-              initial={{ width: isMobile ? 280 : 340 }}
+              animate={{ width: isHovered ? (isMobile ? 300 : 520) : isMobile ? 200 : 340 }}
+              initial={{ width: isMobile ? 200 : 340 }}
               transition={{
                 type: 'spring',
                 stiffness: animationStyle === 'dynamic' ? 200 : 280,

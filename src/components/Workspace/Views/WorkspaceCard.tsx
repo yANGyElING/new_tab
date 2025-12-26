@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 interface WorkspaceItem {
   id: string;
@@ -25,6 +26,7 @@ interface WorkspaceCardProps {
 
 export default function WorkspaceCard({ item, index, isFocused, searchQuery = '' }: WorkspaceCardProps) {
   const { openItem, copyItemUrl, copyItemCredentials, setFocusedItemIndex } = useWorkspace();
+  const { isMobile } = useResponsiveLayout();
   const [showCredentials, setShowCredentials] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -130,8 +132,8 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.3) }}
     >
-      {/* 卡片容器 */}
-      <div className="relative h-48 [perspective:1000px]">
+      {/* 卡片容器 - 移动端更小 */}
+      <div className={`relative ${isMobile ? 'h-36' : 'h-48'} [perspective:1000px]`}>
         <div
           className={`
             absolute inset-0 w-full h-full transition-transform duration-700 [transform-style:preserve-3d]
@@ -140,45 +142,45 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
         >
           {/* 正面 */}
           <div className={`
-            absolute inset-0 w-full h-full [backface-visibility:hidden] 
-            bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-lg
-            transition-all duration-200 
+            absolute inset-0 w-full h-full [backface-visibility:hidden]
+            bg-white dark:bg-gray-800 ${isMobile ? 'rounded-xl' : 'rounded-2xl'} border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm hover:shadow-lg
+            transition-all duration-200
             ${isFocused ? 'border-blue-300 dark:border-blue-500 shadow-blue-100 dark:shadow-blue-900' : 'border-gray-200 dark:border-gray-700'}
           `}>
 
             {/* 头部区域 */}
-            <div className="p-4 flex flex-col h-full">
-              {/* 图标 */}
-              <div className="flex justify-center mb-3">
+            <div className={`${isMobile ? 'p-2' : 'p-4'} flex flex-col h-full`}>
+              {/* 图标 - 移动端更小 */}
+              <div className="flex justify-center mb-2">
                 <div
-                  className={`w-16 h-16 rounded-2xl ${getIconColor()} flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-105`}
+                  className={`${isMobile ? 'w-10 h-10 rounded-xl' : 'w-16 h-16 rounded-2xl'} ${getIconColor()} flex items-center justify-center shadow-lg transform transition-transform group-hover:scale-105`}
                 >
-                  <span className="text-white font-bold text-2xl">
+                  <span className={`text-white font-bold ${isMobile ? 'text-base' : 'text-2xl'}`}>
                     {item.title.charAt(0).toUpperCase()}
                   </span>
                 </div>
               </div>
 
-              {/* 标题 */}
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 text-center mb-2 line-clamp-2 leading-tight">
+              {/* 标题 - 移动端更小 */}
+              <h3 className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold text-gray-900 dark:text-gray-100 text-center mb-1 line-clamp-2 leading-tight`}>
                 {highlightText(item.title, searchQuery)}
               </h3>
 
-              {/* 描述 */}
-              {item.description && (
+              {/* 描述 - 移动端隐藏 */}
+              {!isMobile && item.description && (
                 <p className="text-xs text-gray-600 dark:text-gray-400 text-center line-clamp-2 leading-relaxed flex-1">
                   {highlightText(item.description, searchQuery)}
                 </p>
               )}
             </div>
 
-            {/* 底部状态栏 */}
-            <div className="absolute bottom-0 left-0 right-0 bg-gray-50/95 dark:bg-gray-700/95 backdrop-blur-sm border-t border-gray-100 dark:border-gray-600 p-2">
+            {/* 底部状态栏 - 移动端更紧凑 */}
+            <div className={`absolute bottom-0 left-0 right-0 bg-gray-50/95 dark:bg-gray-700/95 backdrop-blur-sm border-t border-gray-100 dark:border-gray-600 ${isMobile ? 'p-1.5' : 'p-2'}`}>
               <div className="flex items-center justify-between">
                 {/* 左侧：分类和状态 */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <span className={`
-                    inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                    inline-flex items-center ${isMobile ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'} rounded-full font-medium
                     ${item.category === '工作链接'
                       ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
                       : 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300'
@@ -188,22 +190,22 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
                   </span>
 
                   {hasCredentials && (
-                    <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm" title="有登录信息"></div>
+                    <div className={`${isMobile ? 'w-1.5 h-1.5' : 'w-2 h-2'} rounded-full bg-green-500 shadow-sm`} title="有登录信息"></div>
                   )}
                 </div>
 
-                {/* 右侧：操作按钮 */}
-                <div className="flex items-center space-x-1">
+                {/* 右侧：操作按钮 - 移动端更小 */}
+                <div className="flex items-center space-x-0.5">
                   {hasCredentials && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowCredentials(!showCredentials);
                       }}
-                      className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+                      className={`${isMobile ? 'p-1' : 'p-1.5'} text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors`}
                       title="显示登录信息"
                     >
-                      <i className={`fa-solid ${showCredentials ? 'fa-eye-slash' : 'fa-eye'} text-xs`}></i>
+                      <i className={`fa-solid ${showCredentials ? 'fa-eye-slash' : 'fa-eye'} ${isMobile ? 'text-[10px]' : 'text-xs'}`}></i>
                     </button>
                   )}
 
@@ -213,12 +215,12 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
                       openItem(item);
                     }}
                     className={`
-                      p-1.5 text-blue-500 hover:text-blue-600 rounded-lg transition-all
+                      ${isMobile ? 'p-1' : 'p-1.5'} text-blue-500 hover:text-blue-600 rounded-lg transition-all
                       ${isFocused ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
                     `}
                     title="打开链接"
                   >
-                    <i className="fa-solid fa-external-link-alt text-xs"></i>
+                    <i className={`fa-solid fa-external-link-alt ${isMobile ? 'text-[10px]' : 'text-xs'}`}></i>
                   </button>
                 </div>
               </div>
@@ -236,16 +238,16 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
 
           {/* 背面 - 登录信息 */}
           {hasCredentials && (
-            <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm">
-              <div className="px-6 py-4 space-y-6">
+            <div className={`absolute inset-0 w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white dark:bg-gray-800 ${isMobile ? 'rounded-xl' : 'rounded-2xl'} border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm`}>
+              <div className={`${isMobile ? 'px-3 py-2 space-y-3' : 'px-6 py-4 space-y-6'}`}>
                 {/* 账号信息 */}
                 {item.username && (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <i className="fa-solid fa-user text-blue-600 dark:text-blue-400 text-sm"></i>
+                    <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-3'} flex-1 min-w-0`}>
+                      <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} bg-blue-100 dark:bg-blue-900/50 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        <i className={`fa-solid fa-user text-blue-600 dark:text-blue-400 ${isMobile ? 'text-xs' : 'text-sm'}`}></i>
                       </div>
-                      <code className="text-sm text-gray-900 dark:text-gray-100 truncate font-mono select-text" style={{ userSelect: 'text' }}>
+                      <code className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-900 dark:text-gray-100 truncate font-mono select-text`} style={{ userSelect: 'text' }}>
                         {item.username}
                       </code>
                     </div>
@@ -254,10 +256,10 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
                         e.stopPropagation();
                         handleCopyCredentials('username');
                       }}
-                      className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors flex-shrink-0"
+                      className={`${isMobile ? 'p-1' : 'p-2'} text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-colors flex-shrink-0`}
                       title="复制账号"
                     >
-                      <i className="fa-solid fa-copy text-sm"></i>
+                      <i className={`fa-solid fa-copy ${isMobile ? 'text-xs' : 'text-sm'}`}></i>
                     </button>
                   </div>
                 )}
@@ -265,11 +267,11 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
                 {/* 密码信息 */}
                 {item.password && (
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="w-8 h-8 bg-amber-100 dark:bg-amber-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <i className="fa-solid fa-key text-amber-600 dark:text-amber-400 text-sm"></i>
+                    <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-3'} flex-1 min-w-0`}>
+                      <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} bg-amber-100 dark:bg-amber-900/50 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                        <i className={`fa-solid fa-key text-amber-600 dark:text-amber-400 ${isMobile ? 'text-xs' : 'text-sm'}`}></i>
                       </div>
-                      <code className="text-sm text-gray-900 dark:text-gray-100 font-mono select-text" style={{ userSelect: 'text' }}>
+                      <code className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-900 dark:text-gray-100 font-mono select-text`} style={{ userSelect: 'text' }}>
                         {'●'.repeat(Math.min(item.password.length, 12))}
                       </code>
                     </div>
@@ -278,17 +280,17 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
                         e.stopPropagation();
                         handleCopyCredentials('password');
                       }}
-                      className="p-2 text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-colors flex-shrink-0"
+                      className={`${isMobile ? 'p-1' : 'p-2'} text-gray-400 dark:text-gray-500 hover:text-amber-600 dark:hover:text-amber-400 rounded-lg transition-colors flex-shrink-0`}
                       title="复制密码"
                     >
-                      <i className="fa-solid fa-copy text-sm"></i>
+                      <i className={`fa-solid fa-copy ${isMobile ? 'text-xs' : 'text-sm'}`}></i>
                     </button>
                   </div>
                 )}
 
                 {/* 返回提示 */}
-                <div className="text-center pt-2 border-t border-gray-100 dark:border-gray-700">
-                  <span className="text-xs text-gray-500 dark:text-gray-400">点击返回</span>
+                <div className={`text-center ${isMobile ? 'pt-1' : 'pt-2'} border-t border-gray-100 dark:border-gray-700`}>
+                  <span className={`${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500 dark:text-gray-400`}>点击返回</span>
                 </div>
               </div>
             </div>
@@ -296,17 +298,17 @@ export default function WorkspaceCard({ item, index, isFocused, searchQuery = ''
 
           {/* 无登录信息时的背面 */}
           {!hasCredentials && showCredentials && (
-            <div className="absolute inset-0 w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center items-center shadow-sm">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mb-4">
-                <i className="fa-solid fa-lock text-gray-400 dark:text-gray-500 text-2xl"></i>
+            <div className={`absolute inset-0 w-full h-full [backface-visibility:hidden] [transform:rotateY(180deg)] bg-white dark:bg-gray-800 ${isMobile ? 'rounded-xl' : 'rounded-2xl'} border border-gray-200 dark:border-gray-700 flex flex-col justify-center items-center shadow-sm`}>
+              <div className={`${isMobile ? 'w-10 h-10 rounded-xl' : 'w-16 h-16 rounded-2xl'} bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-2`}>
+                <i className={`fa-solid fa-lock text-gray-400 dark:text-gray-500 ${isMobile ? 'text-base' : 'text-2xl'}`}></i>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-4">该网站无需登录信息</p>
+              <p className={`${isMobile ? 'text-xs' : 'text-sm'} text-gray-500 dark:text-gray-400 text-center mb-2`}>无需登录信息</p>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowCredentials(false);
                 }}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                className={`${isMobile ? 'text-xs' : 'text-sm'} text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors`}
               >
                 点击返回
               </button>

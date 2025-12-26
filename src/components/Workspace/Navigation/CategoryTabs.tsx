@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useRef, useEffect, useState } from 'react';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 interface CategoryTabsProps {
   className?: string;
@@ -14,6 +15,7 @@ export default function CategoryTabs({ className = '' }: CategoryTabsProps) {
     setFocusedItemIndex
   } = useWorkspace();
 
+  const { isMobile } = useResponsiveLayout();
   const [activeIndex, setActiveIndex] = useState(0);
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -82,7 +84,16 @@ export default function CategoryTabs({ className = '' }: CategoryTabsProps) {
 
   return (
     <div className={`category-tabs ${className}`}>
-      <div className="flex flex-wrap gap-2 p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-b border-gray-100 dark:border-gray-700 select-none" style={{ userSelect: 'none' }}>
+      <div
+        className={`
+          ${isMobile
+            ? 'flex overflow-x-auto gap-1.5 px-3 py-2 scrollbar-hide'
+            : 'flex flex-wrap gap-2 p-4'
+          }
+          bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 border-b border-gray-100 dark:border-gray-700 select-none
+        `}
+        style={{ userSelect: 'none' }}
+      >
         {categories.map((category, index) => {
           const isActive = activeIndex === index;
           const displayName = category.name === 'all' ? '全部' : category.name;
@@ -93,7 +104,7 @@ export default function CategoryTabs({ className = '' }: CategoryTabsProps) {
               ref={el => buttonRefs.current[index] = el}
               onClick={() => handleCategoryClick(category.name, index)}
               onKeyDown={(e) => handleButtonKeyDown(e, index)}
-              className={`category-tab-button relative flex items-center gap-2 px-3 py-2 rounded-xl font-medium transition-all duration-200 focus:outline-none overflow-hidden
+              className={`category-tab-button relative flex items-center gap-1.5 ${isMobile ? 'px-2.5 py-1.5 flex-shrink-0' : 'px-3 py-2'} rounded-xl font-medium transition-all duration-200 focus:outline-none overflow-hidden
                 ${isActive ? 'ring-2 ring-blue-300 ring-offset-1' : ''}
               `}
               whileHover={{ scale: 1.02 }}
@@ -116,12 +127,12 @@ export default function CategoryTabs({ className = '' }: CategoryTabsProps) {
               )}
 
               {/* 内容层 - 始终在最上层 */}
-              <div className={`relative z-10 flex items-center gap-2 ${isActive ? 'text-white' : 'text-gray-600 dark:text-gray-300'}`}>
-                <span className="text-base">{category.icon}</span>
-                <span className="text-sm font-medium">{displayName}</span>
+              <div className={`relative z-10 flex items-center gap-1.5 ${isActive ? 'text-white' : 'text-gray-600 dark:text-gray-300'}`}>
+                <span className={isMobile ? 'text-sm' : 'text-base'}>{category.icon}</span>
+                <span className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium whitespace-nowrap`}>{displayName}</span>
                 <span
                   className={`
-                    inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full
+                    inline-flex items-center justify-center ${isMobile ? 'min-w-[16px] h-4 px-1 text-[10px]' : 'min-w-[20px] h-5 px-1.5 text-xs'} font-bold rounded-full
                     ${isActive
                       ? 'bg-white/20 text-white'
                       : 'bg-gradient-to-r from-gray-100 to-gray-50 dark:from-gray-700 dark:to-gray-600 text-gray-600 dark:text-gray-300'

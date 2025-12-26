@@ -797,7 +797,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
       >
         {/* 移动端顶部导航 */}
         {isMobile && (
-          <div className="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 p-4">
+          <div className="flex-shrink-0 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xl font-bold bg-gradient-to-br from-gray-800 to-gray-500 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">设置</div>
               <button

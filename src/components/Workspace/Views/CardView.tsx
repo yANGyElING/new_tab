@@ -1,6 +1,7 @@
 import { motion, LayoutGroup } from 'framer-motion';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useRef, useEffect, useState } from 'react';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import WorkspaceCard from './WorkspaceCard';
 import LoadingSpinner from '../LoadingSpinner';
 
@@ -18,6 +19,7 @@ export default function CardView({ className = '' }: CardViewProps) {
     setSearchQuery
   } = useWorkspace();
 
+  const { isMobile } = useResponsiveLayout();
   const [focusPosition, setFocusPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -99,8 +101,11 @@ export default function CardView({ className = '' }: CardViewProps) {
     );
   }
 
-  // 计算网格布局
+  // 计算网格布局 - 移动端使用2列更紧凑
   const getGridClasses = () => {
+    if (isMobile) {
+      return 'grid grid-cols-2 gap-2';
+    }
     return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4';
   };
 
@@ -118,7 +123,7 @@ export default function CardView({ className = '' }: CardViewProps) {
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        <div style={{ padding: '16px', minHeight: '100%' }}>
+        <div style={{ padding: isMobile ? '8px' : '16px', minHeight: '100%' }}>
           {/* 卡片视图头部（可选） */}
           {filteredItems.length > 0 && searchQuery && (
             <div className="mb-6">

@@ -65,7 +65,7 @@ function WorkspaceModalComponent({ isOpen, onClose }: WorkspaceModalProps) {
   };
 
   const containerClasses = isMobile
-    ? 'fixed inset-4 max-h-[95vh]'
+    ? 'fixed inset-0'
     : 'w-full max-w-7xl max-h-[90vh]';
 
   return (
@@ -86,12 +86,12 @@ function WorkspaceModalComponent({ isOpen, onClose }: WorkspaceModalProps) {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none select-none">
             <motion.div
               data-workspace-modal
-              className={`${containerClasses} bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 select-none`}
+              className={`${containerClasses} bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl ${isMobile ? 'rounded-none' : 'rounded-2xl'} shadow-2xl border border-gray-200 dark:border-gray-700 select-none`}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                height: isMobile ? 'calc(100vh - 32px)' : '90vh', // 明确设置高度
-                maxHeight: isMobile ? 'calc(100vh - 32px)' : '90vh',
+                height: isMobile ? '100vh' : '90vh',
+                maxHeight: isMobile ? '100vh' : '90vh',
                 pointerEvents: 'auto',
                 position: 'relative'
               }}
@@ -106,24 +106,26 @@ function WorkspaceModalComponent({ isOpen, onClose }: WorkspaceModalProps) {
               }}
             >
               {/* 头部区域 */}
-              <div className="flex-shrink-0 border-b border-gray-200/80 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-t-2xl overflow-visible" style={{ position: 'relative', zIndex: 100 }}>
+              <div className={`flex-shrink-0 border-b border-gray-200/80 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm ${isMobile ? 'rounded-none pt-[max(0.5rem,env(safe-area-inset-top))]' : 'rounded-t-2xl'} overflow-visible`} style={{ position: 'relative', zIndex: 100 }}>
                 {/* 标题栏 */}
-                <div className="flex items-center justify-between px-6 py-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center shadow-lg">
-                      <i className="fa-solid fa-briefcase text-blue-600 dark:text-blue-400 text-lg"></i>
+                <div className={`flex items-center justify-between ${isMobile ? 'px-3 py-2' : 'px-6 py-4'}`}>
+                  <div className={`flex items-center ${isMobile ? 'space-x-2' : 'space-x-3'}`}>
+                    <div className={`${isMobile ? 'w-8 h-8' : 'w-10 h-10'} bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center shadow-lg`}>
+                      <i className={`fa-solid fa-briefcase text-blue-600 dark:text-blue-400 ${isMobile ? 'text-sm' : 'text-lg'}`}></i>
                     </div>
                     <div>
-                      <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">工作空间</h1>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {isConfigured ? (
-                          <>
-                            {workspaceItems.length} 个项目 • {formatSyncTime(lastSync)}
-                          </>
-                        ) : (
-                          '请先配置 Notion 数据库连接'
-                        )}
-                      </p>
+                      <h1 className={`${isMobile ? 'text-base' : 'text-xl'} font-bold text-gray-900 dark:text-gray-100`}>工作空间</h1>
+                      {!isMobile && (
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {isConfigured ? (
+                            <>
+                              {workspaceItems.length} 个项目 • {formatSyncTime(lastSync)}
+                            </>
+                          ) : (
+                            '请先配置 Notion 数据库连接'
+                          )}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -175,7 +177,7 @@ function WorkspaceModalComponent({ isOpen, onClose }: WorkspaceModalProps) {
                     <CategoryTabs />
 
                     {/* 搜索和视图控制 */}
-                    <div className="px-6 py-4 bg-gray-50/50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 overflow-visible" style={{ position: 'relative' }}>
+                    <div className={`${isMobile ? 'px-3 py-2' : 'px-6 py-4'} bg-gray-50/50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 overflow-visible`} style={{ position: 'relative' }}>
                       <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'items-center justify-between'}`}>
                         {/* 搜索栏 */}
                         <div className={isMobile ? 'w-full' : 'flex-1 max-w-md'}>
@@ -313,8 +315,8 @@ function WorkspaceModalComponent({ isOpen, onClose }: WorkspaceModalProps) {
                 </AnimatePresence>
               </div>
 
-              {/* 底部状态栏 */}
-              {isConfigured && !showSettings && (
+              {/* 底部状态栏 - 移动端隐藏 */}
+              {isConfigured && !showSettings && !isMobile && (
                 <div className="flex-shrink-0 px-6 py-3 bg-gray-50/80 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-700 backdrop-blur-sm">
                   <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <div className="flex items-center space-x-6">
