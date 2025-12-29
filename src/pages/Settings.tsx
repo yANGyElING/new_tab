@@ -1737,19 +1737,28 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
 
                     {/* 风力效果开关 */}
                     <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-                      <div className="flex items-center gap-2">
-                        <i className="fa-solid fa-wind text-cyan-500 text-sm"></i>
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
-                          风力效果
-                        </span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <i className="fa-solid fa-wind text-cyan-500 text-sm"></i>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                            风力效果
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                          {atmosphereWindEnabled ? '粒子会受风力影响飘动' : '粒子自然下落'}
+                        </p>
                       </div>
                       <button
                         onClick={() => setAtmosphereWindEnabled(!atmosphereWindEnabled)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${atmosphereWindEnabled ? 'bg-cyan-500' : 'bg-gray-300 dark:bg-gray-600'
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${atmosphereWindEnabled
+                          ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg shadow-cyan-300/50'
+                          : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
                           }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${atmosphereWindEnabled ? 'translate-x-6' : 'translate-x-1'
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${atmosphereWindEnabled
+                            ? 'translate-x-6 shadow-cyan-200'
+                            : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
                             }`}
                         />
                       </button>
