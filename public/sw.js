@@ -1,6 +1,6 @@
-// 离线优先的Service Worker
-// ⚠️ 更新版本时，请同步更新 src/lib/swConfig.ts 中的 SW_VERSION
-const SW_VERSION = 'v14';
+// Offline-first Service Worker with Unsplash Source wallpaper support
+// ⚠️ Update src/lib/swConfig.ts SW_VERSION when changing this
+const SW_VERSION = 'v15';
 const CACHE_NAME = `jiang-ai-web-${SW_VERSION}-offline`;
 const STATIC_CACHE_NAME = `static-${SW_VERSION}`;
 const DYNAMIC_CACHE_NAME = `dynamic-${SW_VERSION}`;
@@ -52,11 +52,12 @@ const SKIP_CACHE_PATTERNS = [
   /supabase\.co.*auth/ // 避免缓存认证请求
 ];
 
-// 壁纸资源URL模式
+// Wallpaper URL patterns (Unsplash Source + Picsum)
 const WALLPAPER_PATTERNS = [
-  /wallpaper-service/,
-  /unsplash\.com.*\.(jpg|jpeg|png)$/,
-  /picsum\.photos.*\.(jpg|jpeg|png)$/
+  /source\.unsplash\.com/,
+  /images\.unsplash\.com/,
+  /unsplash\.com.*\.(jpg|jpeg|png|webp)$/,
+  /picsum\.photos/
 ];
 
 // 检查是否为壁纸请求

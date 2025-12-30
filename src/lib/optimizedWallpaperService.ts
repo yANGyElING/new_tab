@@ -1,5 +1,5 @@
-// 优化的壁纸服务 - 解决白屏问题，提升加载体验
-// 使用浏览器原生 Blob API 处理图片数据
+// Optimized Wallpaper Service - Direct Unsplash Source Integration
+// Uses Unsplash Source URL (no API key required) with local caching
 import { indexedDBCache } from './indexedDBCache';
 import { logger } from './logger';
 import { errorHandler } from './errorHandler';
@@ -8,7 +8,25 @@ import { createWallpaperRequest } from './requestManager';
 import { createTimeoutSignal } from './abortUtils';
 import { customWallpaperManager } from './customWallpaperManager';
 
-// 移除未使用的接口
+// Unsplash wallpaper topics (nature landscapes)
+const WALLPAPER_TOPICS = [
+  'nature',
+  'landscape',
+  'mountains',
+  'ocean',
+  'forest',
+  'sky',
+  'sunset',
+  'sunrise',
+];
+
+// Resolution configurations
+const RESOLUTION_CONFIG: Record<string, { width: number; height: number }> = {
+  '4k': { width: 3840, height: 2160 },
+  '1080p': { width: 1920, height: 1080 },
+  '720p': { width: 1366, height: 768 },
+  mobile: { width: 1080, height: 1920 },
+};
 
 class OptimizedWallpaperService {
   private static instance: OptimizedWallpaperService;
@@ -21,8 +39,8 @@ class OptimizedWallpaperService {
       needsUpdate: boolean;
     }>
   >();
-  private fallbackImage = '/icon/favicon.png'; // 本地备用图片
-  private cleanupTimer: number | null = null; // 定时清理器ID
+  private fallbackImage = '/icon/favicon.png';
+  private cleanupTimer: number | null = null;
 
   static getInstance(): OptimizedWallpaperService {
     if (!OptimizedWallpaperService.instance) {
@@ -149,30 +167,55 @@ class OptimizedWallpaperService {
     return `wallpaper-optimized:${resolution}-${this.getLocalDateString(yesterday)}`;
   }
 
-  // 移除未使用的方法
-
-  // 获取Supabase壁纸URL
-  private async getWallpaperUrl(resolution: string): Promise<string> {
-    try {
-      const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
-
-      if (supabaseUrl) {
-        const resolutionMap = {
-          '4k': 'uhd',
-          '1080p': '1920x1080',
-          '720p': '1366x768',
-          mobile: 'mobile',
-        };
-
-        const targetResolution =
-          resolutionMap[resolution as keyof typeof resolutionMap] || '1920x1080';
-        return `${supabaseUrl}/functions/v1/wallpaper-service?resolution=${targetResolution}`;
-      }
-    } catch (error) {
-      logger.wallpaper.warn('Supabase壁纸服务访问失败', error);
+  // Generate daily seed for consistent wallpaper per day
+  private getDailySeed(): number {
+    const today = this.getLocalDateString();
+    let hash = 0;
+    for (let i = 0; i < today.length; i++) {
+      const char = today.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
     }
+    return Math.abs(hash);
+  }
 
-    return this.fallbackImage;
+  // Get daily topic index (rotates through topics)
+  private getDailyTopicIndex(): number {
+    const today = new Date();
+    const dayOfYear = Math.floor(
+      (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000
+    );
+    return dayOfYear % WALLPAPER_TOPICS.length;
+  }
+
+  // Build Unsplash Source URL (no API key required)
+  private getUnsplashSourceUrl(resolution: string): string {
+    const config = RESOLUTION_CONFIG[resolution] || RESOLUTION_CONFIG['1080p'];
+    const { width, height } = config;
+    const topic = WALLPAPER_TOPICS[this.getDailyTopicIndex()];
+    const seed = this.getDailySeed();
+
+    // Unsplash Source URL format: https://source.unsplash.com/{width}x{height}/?{topic}&sig={seed}
+    return `https://source.unsplash.com/${width}x${height}/?${topic}&sig=${seed}`;
+  }
+
+  // Build Picsum fallback URL
+  private getPicsumUrl(resolution: string): string {
+    const config = RESOLUTION_CONFIG[resolution] || RESOLUTION_CONFIG['1080p'];
+    const { width, height } = config;
+    const seed = this.getDailySeed();
+
+    return `https://picsum.photos/seed/${seed}/${width}/${height}`;
+  }
+
+  // Get wallpaper URL - Picsum first (better CORS support), Unsplash as fallback
+  private getWallpaperUrl(resolution: string): string {
+    return this.getPicsumUrl(resolution);
+  }
+
+  // Get fallback wallpaper URL (Unsplash Source - may have CORS issues)
+  private getFallbackWallpaperUrl(resolution: string): string {
+    return this.getUnsplashSourceUrl(resolution);
   }
 
   // 智能获取缓存（今天 > 昨天 > 更早）
@@ -257,38 +300,32 @@ class OptimizedWallpaperService {
     return undefined;
   }
 
-  // 下载并缓存壁纸
+  // Download and cache wallpaper
   private async downloadAndCache(
     url: string,
     resolution: string
   ): Promise<{ blobUrl: string; originalUrl: string }> {
     try {
-      logger.wallpaper.info('开始下载壁纸', { url: url.substring(0, 50) });
+      logger.wallpaper.info('开始下载壁纸', { url: url.substring(0, 80) });
 
-      // 使用代理处理CORS
-      const proxyUrl =
-        url.includes('unsplash.com') || url.includes('picsum.photos')
-          ? `https://corsproxy.io/?${encodeURIComponent(url)}`
-          : url;
-
-      // 使用请求管理器下载
-      const response = await createWallpaperRequest(proxyUrl, {
+      // Picsum and Unsplash support CORS natively, no proxy needed
+      const response = await createWallpaperRequest(url, {
         mode: 'cors',
         headers: { Accept: 'image/*' },
-        signal: createTimeoutSignal(12000), // 12秒超时
+        signal: createTimeoutSignal(20000), // 20s timeout for large images
       });
 
       const blob = await response.blob();
       const blobUrl = await memoryManager.createBlobUrl(blob, 'wallpaper');
 
-      // 异步缓存到IndexedDB（保存 Blob）
+      // Cache to IndexedDB asynchronously
       const cacheKey = this.getTodayCacheKey(resolution);
       indexedDBCache
-        .set(cacheKey, blob, 48 * 60 * 60 * 1000) // 48小时缓存
+        .set(cacheKey, blob, 48 * 60 * 60 * 1000) // 48h cache
         .then(() => logger.wallpaper.info('壁纸已缓存到IndexedDB'))
         .catch((error) => logger.wallpaper.warn('缓存壁纸失败', error));
 
-      // 保存原始 URL 元数据
+      // Save original URL metadata
       const metadataKey = `${cacheKey}-metadata`;
       indexedDBCache
         .set(
@@ -433,27 +470,37 @@ class OptimizedWallpaperService {
 
       // 2. 无缓存，需要下载
       logger.wallpaper.info('无可用缓存，开始下载新壁纸');
-      const wallpaperUrl = await this.getWallpaperUrl(resolution);
 
-      if (wallpaperUrl === this.fallbackImage) {
-        // 使用本地备用图片
+      // Try Unsplash first, fallback to Picsum
+      try {
+        const unsplashUrl = this.getWallpaperUrl(resolution);
+        const downloaded = await this.downloadAndCache(unsplashUrl, resolution);
         return {
-          url: wallpaperUrl,
+          url: downloaded.blobUrl,
           isFromCache: false,
           isToday: true,
           needsUpdate: false,
+          originalUrl: downloaded.originalUrl,
         };
+      } catch (unsplashError) {
+        logger.wallpaper.warn('Unsplash download failed, trying Picsum fallback', unsplashError);
+
+        // Fallback to Picsum
+        try {
+          const picsumUrl = this.getFallbackWallpaperUrl(resolution);
+          const downloaded = await this.downloadAndCache(picsumUrl, resolution);
+          return {
+            url: downloaded.blobUrl,
+            isFromCache: false,
+            isToday: true,
+            needsUpdate: false,
+            originalUrl: downloaded.originalUrl,
+          };
+        } catch (picsumError) {
+          logger.wallpaper.error('Both Unsplash and Picsum failed', picsumError);
+          throw picsumError;
+        }
       }
-
-      const downloaded = await this.downloadAndCache(wallpaperUrl, resolution);
-
-      return {
-        url: downloaded.blobUrl,
-        isFromCache: false,
-        isToday: true,
-        needsUpdate: false,
-        originalUrl: downloaded.originalUrl,
-      };
     } catch (error) {
       const errorInfo = errorHandler.handleError(error as Error, 'wallpaper-load');
       logger.wallpaper.error('获取壁纸失败，使用备用图片', errorInfo);
@@ -467,16 +514,21 @@ class OptimizedWallpaperService {
     }
   }
 
-  // 后台更新壁纸
+  // Background wallpaper update with fallback
   private async updateWallpaperInBackground(resolution: string): Promise<void> {
     try {
-      const wallpaperUrl = await this.getWallpaperUrl(resolution);
-      if (wallpaperUrl !== this.fallbackImage) {
-        await this.downloadAndCache(wallpaperUrl, resolution);
-        logger.wallpaper.info('后台壁纸更新完成');
+      const unsplashUrl = this.getWallpaperUrl(resolution);
+      await this.downloadAndCache(unsplashUrl, resolution);
+      logger.wallpaper.info('Background wallpaper update completed (Unsplash)');
+    } catch (unsplashError) {
+      logger.wallpaper.warn('Unsplash background update failed, trying Picsum', unsplashError);
+      try {
+        const picsumUrl = this.getFallbackWallpaperUrl(resolution);
+        await this.downloadAndCache(picsumUrl, resolution);
+        logger.wallpaper.info('Background wallpaper update completed (Picsum fallback)');
+      } catch (picsumError) {
+        logger.wallpaper.warn('Background wallpaper update failed completely', picsumError);
       }
-    } catch (error) {
-      logger.wallpaper.warn('后台壁纸更新失败', error);
     }
   }
 

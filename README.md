@@ -44,7 +44,7 @@ Built with performance and aesthetics in mind, it combines robust bookmark manag
 
 ### 🎨 Visual & UI
 > **Experience a workspace that breathes.**
-- **Dynamic Wallpapers** - Starts your day with a fresh, high-res background from Bing.
+- **Dynamic Wallpapers** - Starts your day with a fresh, high-res background from Unsplash.
 - **Parallax Effects** - Interactive depth that responds to your mouse movement.
 - **Glassmorphism** - Modern frosted glass aesthetics with customizable transparency.
 - **Theme Engine** - Seamless toggling between Light and Dark modes.
