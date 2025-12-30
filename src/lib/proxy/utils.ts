@@ -10,7 +10,8 @@ export function isBinaryUrl(url: string): boolean {
   return (
     imageExtensions.some((ext) => lowerUrl.includes(ext)) ||
     lowerUrl.includes('favicon.im') ||
-    lowerUrl.includes('bing.img.run')
+    lowerUrl.includes('unsplash.com') ||
+    lowerUrl.includes('picsum.photos')
   );
 }
 

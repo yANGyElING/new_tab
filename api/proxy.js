@@ -25,9 +25,11 @@ module.exports = async function handler(req, res) {
     const allowedDomains = [
       'api.notion.com',
       'favicon.im',
-      'www.google.com', 
-      'bing.img.run',
-      'bing.com',
+      'www.google.com',
+      'unsplash.com',
+      'images.unsplash.com',
+      'source.unsplash.com',
+      'picsum.photos',
       's2.googleusercontent.com',
       'api.allorigins.win',
       'httpbin.org', // 测试用
@@ -83,8 +85,8 @@ module.exports = async function handler(req, res) {
     }
 
     // 图片和 favicon 请求特殊处理
-    if (targetUrl.includes('.jpg') || targetUrl.includes('.png') || targetUrl.includes('.jpeg') || 
-        targetUrl.includes('bing.img.run') || targetUrl.includes('favicon') || 
+    if (targetUrl.includes('.jpg') || targetUrl.includes('.png') || targetUrl.includes('.jpeg') ||
+        targetUrl.includes('unsplash.com') || targetUrl.includes('picsum.photos') || targetUrl.includes('favicon') ||
         targetUrl.includes('.ico') || targetUrl.includes('s2/favicons')) {
       headers['Accept'] = 'image/*,*/*;q=0.8';
       headers['User-Agent'] = 'Mozilla/5.0 (compatible; FaviconBot/1.0)';

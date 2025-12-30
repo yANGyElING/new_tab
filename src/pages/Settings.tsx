@@ -60,8 +60,8 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [showUserStatsModal, setShowUserStatsModal] = useState(false);
 
-  // 记录上一次选择的必应壁纸分辨率，用于切换回必应模式时恢复
-  const [lastBingResolution, setLastBingResolution] = useState<WallpaperResolution>('1080p');
+  // 记录上一次选择的Unsplash壁纸分辨率，用于切换回Unsplash模式时恢复
+  const [lastUnsplashResolution, setLastUnsplashResolution] = useState<WallpaperResolution>('1080p');
 
   // 使用统一的数据管理Hook
   const { exportAllData, importAllData, isExporting, isImporting } = useDataManager(
@@ -124,7 +124,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
   // 记录非自定义模式下的分辨率选择
   useEffect(() => {
     if (wallpaperResolution !== 'custom') {
-      setLastBingResolution(wallpaperResolution);
+      setLastUnsplashResolution(wallpaperResolution);
     }
   }, [wallpaperResolution]);
 
@@ -1338,7 +1338,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               {/* 模式切换 Tab */}
               <div className="flex p-1 bg-gray-100 rounded-xl select-none relative">
                 <button
-                  onClick={() => setWallpaperResolution(lastBingResolution)}
+                  onClick={() => setWallpaperResolution(lastUnsplashResolution)}
                   className={`relative flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 ${wallpaperResolution !== 'custom'
                     ? 'text-pink-600'
                     : 'text-gray-500 hover:text-gray-700'
@@ -1353,7 +1353,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                   )}
                   <span className="relative z-10 flex items-center gap-2">
                     <i className="fa-solid fa-image"></i>
-                    每日必应
+                    Unsplash
                   </span>
                 </button>
                 <button
@@ -1380,7 +1380,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               {/* 内容区域 */}
               <div className="min-h-[180px]">
                 {wallpaperResolution !== 'custom' ? (
-                  /* 必应壁纸分辨率选择 */
+                  /* Unsplash壁纸分辨率选择 */
                   <div className="space-y-4 animate-fadeIn">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">

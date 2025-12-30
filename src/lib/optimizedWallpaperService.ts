@@ -267,7 +267,7 @@ class OptimizedWallpaperService {
 
       // 使用代理处理CORS
       const proxyUrl =
-        url.includes('bing.com') || url.includes('unsplash.com')
+        url.includes('unsplash.com') || url.includes('picsum.photos')
           ? `https://corsproxy.io/?${encodeURIComponent(url)}`
           : url;
 

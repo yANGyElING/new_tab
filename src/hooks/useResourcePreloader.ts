@@ -17,8 +17,9 @@ export function useResourcePreloader(enabled: boolean = true) {
       // 预连接到第三方域名
       const preconnectDomains = [
         'https://api.allorigins.win',
-        'https://www.bing.com',
         'https://source.unsplash.com',
+        'https://images.unsplash.com',
+        'https://picsum.photos',
         'https://www.google.com',
         'https://icons.duckduckgo.com',
         'https://favicon.im',

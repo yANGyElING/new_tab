@@ -55,8 +55,8 @@ const SKIP_CACHE_PATTERNS = [
 // 壁纸资源URL模式
 const WALLPAPER_PATTERNS = [
   /wallpaper-service/,
-  /bing\.com.*\.(jpg|jpeg|png)$/,
-  /unsplash\.com.*\.(jpg|jpeg|png)$/
+  /unsplash\.com.*\.(jpg|jpeg|png)$/,
+  /picsum\.photos.*\.(jpg|jpeg|png)$/
 ];
 
 // 检查是否为壁纸请求

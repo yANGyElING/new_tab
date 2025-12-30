@@ -45,7 +45,8 @@
       "Bash(pnpm run build:*)",
       "Bash(dir:*)",
       "mcp__desktop-commander__write_file",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "mcp__augment-context-engine__codebase-retrieval"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
