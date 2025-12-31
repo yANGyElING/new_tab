@@ -1,7 +1,12 @@
 import { Routes, Route } from 'react-router-dom';
 import Home from '@/pages/Home';
+import AuthCallback from '@/pages/AuthCallback';
 import ResetPassword from '@/pages/ResetPassword';
 import NotFound from '@/pages/NotFound';
+import { lazy, Suspense } from 'react';
+
+// Admin 页面懒加载 - 包含 Recharts 图表库，延迟加载减少首屏 bundle
+const Admin = lazy(() => import('@/pages/Admin'));
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TransparencyProvider } from '@/contexts/TransparencyContext';
@@ -9,8 +14,10 @@ import { AuthProvider, useAuth } from '@/contexts/SupabaseAuthContext';
 import { SyncProvider } from '@/contexts/SyncContext';
 import { UserProfileProvider, useUserProfile } from '@/contexts/UserProfileContext';
 import { WorkspaceProvider } from '@/contexts/WorkspaceContext';
-import { WebsiteData } from '@/lib/supabaseSync';
-import { useState, useEffect } from 'react';
+import { AdminProvider } from '@/contexts/AdminContext';
+import { WebsiteData, updateUserActiveTime } from '@/lib/supabaseSync';
+import { checkUserBanned } from '@/lib/adminUtils';
+import { useState, useEffect, useRef } from 'react';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { useResourcePreloader } from '@/hooks/useResourcePreloader';
 import { useCloudData } from '@/hooks/useCloudData';
@@ -36,7 +43,7 @@ function AppContent() {
 
   // 存储管理
   const storage = useStorage();
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   const {
     setCardOpacity,
     setSearchBarOpacity,
@@ -68,12 +75,54 @@ function AppContent() {
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
   const [lastMergedDataId, setLastMergedDataId] = useState<string>('');
 
+  // 用于防止重复检查禁用状态
+  const banCheckRef = useRef(false);
+
   // 当用户变化时重置状态
   useEffect(() => {
     setDataInitialized(false);
     setSettingsApplied(false);
     setLastMergedDataId('');
+    banCheckRef.current = false;
   }, [currentUser?.id]);
+
+  // 检查用户是否被禁用，如果是则强制登出
+  useEffect(() => {
+    if (!currentUser || banCheckRef.current) return;
+
+    const checkBan = async () => {
+      banCheckRef.current = true;
+      const isBanned = await checkUserBanned(currentUser.id);
+      if (isBanned) {
+        // 显示提示并登出
+        alert('您的账户已被禁用，如有疑问请联系管理员。');
+        await logout();
+      }
+    };
+
+    checkBan();
+  }, [currentUser, logout]);
+
+  // 后台静默更新用户活跃时间（用于后台显示在线状态）
+  useEffect(() => {
+    if (!currentUser || !currentUser.email_confirmed_at) return;
+
+    // 使用 requestIdleCallback 在浏览器空闲时执行，不影响页面加载
+    const doUpdate = () => {
+      updateUserActiveTime(currentUser).catch(() => {
+        // 静默失败，不影响用户体验
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      const id = requestIdleCallback(doUpdate, { timeout: 5000 });
+      return () => cancelIdleCallback(id);
+    } else {
+      // 回退方案：使用 setTimeout
+      const timer = setTimeout(doUpdate, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser]);
 
   // 数据合并逻辑：当云端数据加载完成时，合并本地和云端数据
   useEffect(() => {
@@ -230,7 +279,20 @@ function AppContent() {
             <Home websites={websites} setWebsites={setWebsites} dataInitialized={dataInitialized} />
           }
         />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/admin" element={
+          <Suspense fallback={
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                <p className="text-white/80">加载管理后台...</p>
+              </div>
+            </div>
+          }>
+            <Admin />
+          </Suspense>
+        } />
         <Route path="*" element={<NotFound />} />
       </Routes>
 
@@ -258,9 +320,11 @@ export default function MainApp() {
         <AuthProvider>
           <SyncProvider>
             <UserProfileProvider>
-              <WorkspaceProvider>
-                <AppContent />
-              </WorkspaceProvider>
+              <AdminProvider>
+                <WorkspaceProvider>
+                  <AppContent />
+                </WorkspaceProvider>
+              </AdminProvider>
             </UserProfileProvider>
           </SyncProvider>
         </AuthProvider>

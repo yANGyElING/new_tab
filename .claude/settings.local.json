@@ -26,6 +26,7 @@
       "Bash(node get_complete_data.js)",
       "Bash(dir \"C:\\Users\\19404\\jiangjiang_page\" /B)",
       "Read(//c/Users/19404/jiangjiang_page/**)",
+<<<<<<< HEAD
       "mcp__serena__find_file",
       "mcp__serena__activate_project",
       "mcp__mcp-sequentialthinking-tools__sequentialthinking_tools",
@@ -47,6 +48,12 @@
       "mcp__desktop-commander__write_file",
       "Bash(uv run:*)",
       "mcp__augment-context-engine__codebase-retrieval"
+=======
+      "WebFetch(domain:wxheqargopbsrruootyr.supabase.co)",
+      "Bash(supabase --version:*)",
+      "Bash(supabase functions deploy:*)",
+      "Bash(curl:*)"
+>>>>>>> a7db7d3458fc3c509a9cd6835f2632b87f92326d
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

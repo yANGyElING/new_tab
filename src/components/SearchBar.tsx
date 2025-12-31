@@ -8,6 +8,7 @@ import { TodoModal } from './TodoModal';
 import { processFaviconUrl } from '@/lib/faviconUtils';
 import { pinyin, match as pinyinMatch } from 'pinyin-pro';
 import { userStatsManager } from '@/hooks/useUserStats';
+import { createTomatoRain } from './effects/TomatoRain';
 
 interface WebsiteData {
   id: string;
@@ -38,7 +39,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
   const { websites = [], onOpenSettings } = props;
   const inputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const { searchBarOpacity, searchBarColor, setIsSearchFocused, searchInNewTab, isSettingsOpen, searchBarBorderRadius, animationStyle, searchEngine } =
+const { searchBarOpacity, searchBarColor, setIsSearchFocused, searchInNewTab, isSettingsOpen, searchBarBorderRadius, animationStyle, searchEngine, aiIconDisplayMode, darkMode } =
     useTransparency();
   const { isMobile } = useResponsiveLayout();
   const { isWorkspaceOpen, setIsWorkspaceOpen, workspaceItems } = useWorkspace();
@@ -400,9 +401,10 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         const styles = window.getComputedStyle(el);
         const zIndex = parseInt(styles.zIndex) || 0;
         // 检查是否是需要阻止快捷键的模态框背景
-        // 排除工作空间和壁纸背景
+        // 排除工作空间和壁纸背景、pointer-events-none的装饰元素（如雪花效果）
         return zIndex >= 40 &&
           !el.classList.contains('wallpaper') &&
+          !el.classList.contains('pointer-events-none') && // 排除装饰性效果（如雪花）
           !el.querySelector('img') && // 不包含图片（排除壁纸）
           styles.display !== 'none' &&
           !el.closest('[data-workspace-modal]'); // 排除工作空间模态框
@@ -549,8 +551,111 @@ function SearchBarComponent(props: SearchBarProps = {}) {
     return `https://${trimmedInput}`;
   };
 
-  // 生成搜索建议 - 使用百度联想API (带CORS处理)
-  const generateSuggestions = async (query: string): Promise<any[]> => {
+  // 生成智能搜索建议 - 移出渲染路径
+  const generateSmartSuggestions = useCallback((query: string) => {
+    const suggestions = [];
+    const queryLower = query.toLowerCase();
+
+    // 常见的搜索模式
+    const patterns = [
+      query, // 原始查询
+      `${query} 是什么`,
+      `${query} 怎么用`,
+      `${query} 教程`,
+      `如何 ${query}`,
+      `${query} 下载`,
+      `${query} 官网`,
+      `${query} 价格`,
+    ];
+
+    // 根据查询内容智能生成建议
+    if (queryLower.includes('什么') || queryLower.includes('how')) {
+      suggestions.push(`${query}`, `${query} 详解`, `${query} 原理`);
+    } else if (queryLower.includes('怎么') || queryLower.includes('如何')) {
+      suggestions.push(`${query}`, `${query} 步骤`, `${query} 方法`);
+    } else {
+      suggestions.push(...patterns);
+    }
+
+    // 移除重复并返回
+    return [...new Set(suggestions)];
+  }, []);
+
+  // 拼音索引缓存 - 为每个网站生成拼音索引
+  const pinyinIndexCache = useMemo(() => {
+    const cache = new Map<string, { full: string; first: string; original: string }>();
+
+    const getPinyinIndex = (text: string) => {
+      if (cache.has(text)) return cache.get(text)!;
+
+      const result = {
+        full: pinyin(text, { toneType: 'none', type: 'array' }).join('').toLowerCase(),
+        first: pinyin(text, { pattern: 'first', type: 'array' }).join('').toLowerCase(),
+        original: text.toLowerCase(),
+      };
+      cache.set(text, result);
+      return result;
+    };
+
+    return { getPinyinIndex, cache };
+  }, []);
+
+  // 拼音匹配函数
+  const matchWithPinyin = useCallback((query: string, text: string): { matched: boolean; score: number; matchType: string } => {
+    const queryLower = query.toLowerCase();
+    const { getPinyinIndex } = pinyinIndexCache;
+    const index = getPinyinIndex(text);
+
+    // 1. 原文完全匹配 (最高分)
+    if (index.original === queryLower) {
+      return { matched: true, score: 150, matchType: '完全匹配' };
+    }
+
+    // 2. 原文开头匹配
+    if (index.original.startsWith(queryLower)) {
+      return { matched: true, score: 130, matchType: '开头匹配' };
+    }
+
+    // 3. 原文包含匹配
+    if (index.original.includes(queryLower)) {
+      return { matched: true, score: 100, matchType: '包含匹配' };
+    }
+
+    // 4. 拼音首字母完全匹配 (如: bd -> 百度)
+    if (index.first === queryLower) {
+      return { matched: true, score: 120, matchType: '首字母' };
+    }
+
+    // 5. 拼音首字母开头匹配
+    if (index.first.startsWith(queryLower)) {
+      return { matched: true, score: 95, matchType: '首字母' };
+    }
+
+    // 6. 全拼完全匹配 (如: baidu -> 百度)
+    if (index.full === queryLower) {
+      return { matched: true, score: 110, matchType: '全拼' };
+    }
+
+    // 7. 全拼开头匹配
+    if (index.full.startsWith(queryLower)) {
+      return { matched: true, score: 90, matchType: '全拼' };
+    }
+
+    // 8. 全拼包含匹配
+    if (index.full.includes(queryLower) && queryLower.length >= 2) {
+      return { matched: true, score: 70, matchType: '全拼' };
+    }
+
+    // 9. 智能拼音匹配 (支持部分匹配，如: baid -> 百度)
+    const smartMatch = pinyinMatch(text, query, { continuous: true });
+    if (smartMatch !== null) {
+      return { matched: true, score: 85, matchType: '智能拼音' };
+    }
+
+    return { matched: false, score: 0, matchType: '' };
+  }, [pinyinIndexCache]);
+
+  const generateSuggestions = useCallback(async (query: string): Promise<any[]> => {
     if (!query.trim()) return [];
 
     try {
@@ -633,120 +738,16 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
       // 备用方案：使用本地智能建议
       const suggestions = generateSmartSuggestions(query);
-      return suggestions.slice(0, 5).map((suggestion, index) => ({
+      return Promise.resolve(suggestions.slice(0, 5).map((suggestion, index) => ({
         id: `local-${index}`,
         text: suggestion,
         query: suggestion,
-      }));
+      })));
     }
-  };
-
-  // 生成智能搜索建议
-  const generateSmartSuggestions = (query: string) => {
-    const suggestions = [];
-    const queryLower = query.toLowerCase();
-
-    // 常见的搜索模式
-    const patterns = [
-      query, // 原始查询
-      `${query} 是什么`,
-      `${query} 怎么用`,
-      `${query} 教程`,
-      `如何 ${query}`,
-      `${query} 下载`,
-      `${query} 官网`,
-      `${query} 价格`,
-    ];
-
-    // 根据查询内容智能生成建议
-    if (queryLower.includes('什么') || queryLower.includes('how')) {
-      suggestions.push(`${query}`, `${query} 详解`, `${query} 原理`);
-    } else if (queryLower.includes('怎么') || queryLower.includes('如何')) {
-      suggestions.push(`${query}`, `${query} 步骤`, `${query} 方法`);
-    } else {
-      suggestions.push(...patterns);
-    }
-
-    // 移除重复并返回
-    return [...new Set(suggestions)];
-  };
-
-  // 拼音索引缓存 - 为每个网站生成拼音索引
-  const pinyinIndexCache = useMemo(() => {
-    const cache = new Map<string, { full: string; first: string; original: string }>();
-
-    const getPinyinIndex = (text: string) => {
-      if (cache.has(text)) return cache.get(text)!;
-
-      const result = {
-        full: pinyin(text, { toneType: 'none', type: 'array' }).join('').toLowerCase(),
-        first: pinyin(text, { pattern: 'first', type: 'array' }).join('').toLowerCase(),
-        original: text.toLowerCase(),
-      };
-      cache.set(text, result);
-      return result;
-    };
-
-    return { getPinyinIndex, cache };
-  }, []);
-
-  // 拼音匹配函数
-  const matchWithPinyin = useCallback((query: string, text: string): { matched: boolean; score: number; matchType: string } => {
-    const queryLower = query.toLowerCase();
-    const { getPinyinIndex } = pinyinIndexCache;
-    const index = getPinyinIndex(text);
-
-    // 1. 原文完全匹配 (最高分)
-    if (index.original === queryLower) {
-      return { matched: true, score: 150, matchType: '完全匹配' };
-    }
-
-    // 2. 原文开头匹配
-    if (index.original.startsWith(queryLower)) {
-      return { matched: true, score: 130, matchType: '开头匹配' };
-    }
-
-    // 3. 原文包含匹配
-    if (index.original.includes(queryLower)) {
-      return { matched: true, score: 100, matchType: '包含匹配' };
-    }
-
-    // 4. 拼音首字母完全匹配 (如: bd -> 百度)
-    if (index.first === queryLower) {
-      return { matched: true, score: 120, matchType: '首字母' };
-    }
-
-    // 5. 拼音首字母开头匹配
-    if (index.first.startsWith(queryLower)) {
-      return { matched: true, score: 95, matchType: '首字母' };
-    }
-
-    // 6. 全拼完全匹配 (如: baidu -> 百度)
-    if (index.full === queryLower) {
-      return { matched: true, score: 110, matchType: '全拼' };
-    }
-
-    // 7. 全拼开头匹配
-    if (index.full.startsWith(queryLower)) {
-      return { matched: true, score: 90, matchType: '全拼' };
-    }
-
-    // 8. 全拼包含匹配
-    if (index.full.includes(queryLower) && queryLower.length >= 2) {
-      return { matched: true, score: 70, matchType: '全拼' };
-    }
-
-    // 9. 智能拼音匹配 (支持部分匹配，如: baid -> 百度)
-    const smartMatch = pinyinMatch(text, query, { continuous: true });
-    if (smartMatch !== null) {
-      return { matched: true, score: 85, matchType: '智能拼音' };
-    }
-
-    return { matched: false, score: 0, matchType: '' };
-  }, [pinyinIndexCache]);
+  }, [generateSmartSuggestions]);
 
   // 搜索网站卡片 - 智能匹配算法（支持拼音搜索）
-  const searchWebsites = (query: string): WebsiteData[] => {
+  const searchWebsites = useCallback((query: string): WebsiteData[] => {
     if (!query.trim() || websites.length === 0 || query.trim().length < 1) return [];
 
     const queryLower = query.toLowerCase();
@@ -826,7 +827,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         ...match.website,
         matchType: match.matchType,
       }));
-  };
+  }, [websites, matchWithPinyin]);
 
   // 计算字符串相似度 (简化版Levenshtein距离)
   const calculateSimilarity = (str1: string, str2: string): number => {
@@ -944,6 +945,13 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
   // 监听搜索查询变化，更新建议（优化逻辑：同时显示网站卡片和搜索建议）
   useEffect(() => {
+    // 彩蛋：番茄雨 (实时触发)
+    const queryLower = searchQuery.toLowerCase().trim();
+    if (['tomato', '番茄', '西红柿'].includes(queryLower)) {
+      console.log('Triggering tomato rain easter egg!');
+      createTomatoRain();
+    }
+
     const debounceTimer = setTimeout(() => {
       if (searchQuery.trim()) {
         const queryLower = searchQuery.toLowerCase();
@@ -1360,11 +1368,13 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         }
       }
 
-      // 检测Help相关输入（支持中英文）
+      // Detect Help related inputs (support Chinese and English)
       if (queryLower === 'help' || queryLower === '帮助' ||
         queryLower === '帮助页面' || queryLower === '帮助界面') {
-        // 打开帮助页面
-        openUrl('/help/');
+        // Open Workspace Settings in guide mode
+        if (onOpenSettings) {
+          onOpenSettings();
+        }
         setSearchQuery('');
         setShowSuggestions(false);
         setWebsiteSuggestions([]);
@@ -1392,6 +1402,16 @@ function SearchBarComponent(props: SearchBarProps = {}) {
         setShowSuggestions(false);
         setWebsiteSuggestions([]);
       } else {
+        // 彩蛋：番茄雨 (回车触发)
+        if (['tomato', '番茄', '西红柿'].includes(queryToSearch.toLowerCase().trim())) {
+          console.log('Triggering tomato rain easter egg (Enter key)!');
+          createTomatoRain();
+          setSearchQuery('');
+          setShowSuggestions(false);
+          setWebsiteSuggestions([]);
+          return;
+        }
+
         // 搜索引擎搜索
         performSearchWithStats(searchEngine, queryToSearch);
         setSearchQuery('');
@@ -1575,8 +1595,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                 <AnimatePresence>
                   {showSuggestions && (websiteSuggestions.length > 0 || workspaceSuggestions.length > 0 || suggestions.length > 0) && (
                     <motion.div
-                      className={`absolute top-full left-0 right-0 mt-2 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-30 overflow-y-auto custom-scrollbar ${isMobile ? 'max-h-72' : 'max-h-96'
-                        }`}
+                      className={`absolute top-full left-0 right-0 mt-2 backdrop-blur-md rounded-lg shadow-lg border z-30 overflow-y-auto custom-scrollbar ${isMobile ? 'max-h-72' : 'max-h-96'
+                        } ${darkMode ? 'border-gray-700/50' : 'border-white/20'}`}
                       initial={{ opacity: 0, y: -10, scaleY: 0.8 }}
                       animate={{ opacity: 1, y: 0, scaleY: 1 }}
                       exit={{
@@ -1594,7 +1614,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                       }}
                       style={{
                         pointerEvents: 'auto',
-                        backgroundColor: `rgba(255, 255, 255, 0.95)`,
+                        backgroundColor: darkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
                         transformOrigin: 'top center',
                       }}
                       onMouseEnter={() => {
@@ -1606,14 +1626,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                     >
                       {/* 网站建议部分 */}
                       {websiteSuggestions.length > 0 && (
-                        <div className="border-b border-gray-200/50">
+                        <div className={`border-b ${darkMode ? 'border-gray-700/50' : 'border-gray-200/50'}`}>
                           <div
-                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100`}
+                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} ${darkMode ? 'bg-gradient-to-r from-purple-900/30 to-violet-900/30 border-b border-purple-700/50' : 'bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100'}`}
                           >
                             <div className="flex items-center gap-2">
-                              <i className="fa-solid fa-globe text-purple-500 text-sm"></i>
+                              <i className={`fa-solid fa-globe ${darkMode ? 'text-purple-400' : 'text-purple-500'} text-sm`}></i>
                               <span
-                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-purple-700`}
+                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}
                               >
                                 网站建议
                               </span>
@@ -1624,9 +1644,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                             return (
                               <div
                                 key={website.id}
-                                className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} cursor-pointer transition-all duration-200 border-b border-gray-100/50 last:border-b-0 select-none ${isSelected
-                                  ? 'bg-gradient-to-r from-purple-500/10 to-violet-500/10 border-purple-200'
-                                  : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-purple-50'
+                                className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} cursor-pointer transition-all duration-200 border-b last:border-b-0 select-none ${darkMode ? 'border-gray-700/50' : 'border-gray-100/50'
+                                  } ${isSelected
+                                    ? darkMode
+                                      ? 'bg-gradient-to-r from-purple-800/30 to-violet-800/30 border-purple-600/50'
+                                      : 'bg-gradient-to-r from-purple-500/10 to-violet-500/10 border-purple-200'
+                                    : darkMode
+                                      ? 'hover:bg-gradient-to-r hover:from-gray-700/50 hover:to-purple-900/30'
+                                      : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-purple-50'
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1640,7 +1665,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                 >
                                   {/* 网站图标 */}
                                   <div
-                                    className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg overflow-hidden bg-white shadow-sm border border-gray-200/50 flex-shrink-0`}
+                                    className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg overflow-hidden ${darkMode ? 'bg-gray-700' : 'bg-white'} shadow-sm border ${darkMode ? 'border-gray-600/50' : 'border-gray-200/50'} flex-shrink-0`}
                                   >
                                     <img
                                       src={processFaviconUrl(website.favicon, website.url, website.favicon)}
@@ -1657,12 +1682,12 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                       className={`flex items-center gap-2 ${isMobile ? 'mb-0.5' : 'mb-1'}`}
                                     >
                                       <h4
-                                        className={`font-medium text-gray-800 ${isMobile ? 'text-xs' : 'text-sm'} truncate`}
+                                        className={`font-medium ${darkMode ? 'text-gray-100' : 'text-gray-800'} ${isMobile ? 'text-xs' : 'text-sm'} truncate`}
                                       >
                                         {website.name}
                                       </h4>
                                       {(website as any).matchType && !isMobile && (
-                                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                                        <span className={`px-2 py-0.5 ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'} text-xs rounded-full font-medium`}>
                                           {(website as any).matchType}
                                         </span>
                                       )}
@@ -1670,7 +1695,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
                                     {/* URL和标签 */}
                                     <div
-                                      className={`flex items-center gap-1 ${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500`}
+                                      className={`flex items-center gap-1 ${isMobile ? 'text-[10px]' : 'text-xs'} ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
                                     >
                                       <span
                                         className={`truncate ${isMobile ? 'max-w-[120px]' : 'max-w-[200px]'}`}
@@ -1692,7 +1717,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                             {website.tags.slice(0, 2).map((tag, tagIndex) => (
                                               <span
                                                 key={tagIndex}
-                                                className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs"
+                                                className={`px-1.5 py-0.5 ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'} rounded text-xs`}
                                               >
                                                 {tag}
                                               </span>
@@ -1719,14 +1744,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
                                     {/* 备注显示 */}
                                     {website.note && (
-                                      <div className="mt-1 text-xs text-gray-600 truncate">
+                                      <div className={`mt-1 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
                                         {website.note}
                                       </div>
                                     )}
                                   </div>
 
                                   {/* 快捷键提示 */}
-                                  <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                                  <div className={`text-xs ${darkMode ? 'text-purple-300 bg-purple-900/50' : 'text-purple-600 bg-purple-100'} px-2 py-1 rounded`}>
                                     Enter
                                   </div>
                                 </div>
@@ -1738,14 +1763,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
                       {/* 工作空间建议部分 */}
                       {workspaceSuggestions.length > 0 && (
-                        <div className="border-b border-gray-200/50">
+                        <div className={`border-b ${darkMode ? 'border-gray-700/50' : 'border-gray-200/50'}`}>
                           <div
-                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100`}
+                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} ${darkMode ? 'bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border-b border-blue-700/50' : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100'}`}
                           >
                             <div className="flex items-center gap-2">
-                              <i className="fa-solid fa-briefcase text-blue-500 text-sm"></i>
+                              <i className={`fa-solid fa-briefcase ${darkMode ? 'text-blue-400' : 'text-blue-500'} text-sm`}></i>
                               <span
-                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-blue-700`}
+                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}
                               >
                                 工作空间建议
                               </span>
@@ -1757,9 +1782,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                             return (
                               <div
                                 key={workspace.id}
-                                className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} cursor-pointer transition-all duration-200 border-b border-gray-100/50 last:border-b-0 select-none ${isSelected
-                                  ? 'bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-200'
-                                  : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50'
+                                className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} cursor-pointer transition-all duration-200 border-b last:border-b-0 select-none ${darkMode ? 'border-gray-700/50' : 'border-gray-100/50'
+                                  } ${isSelected
+                                    ? darkMode
+                                      ? 'bg-gradient-to-r from-blue-800/30 to-indigo-800/30 border-blue-600/50'
+                                      : 'bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-200'
+                                    : darkMode
+                                      ? 'hover:bg-gradient-to-r hover:from-gray-700/50 hover:to-blue-900/30'
+                                      : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50'
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1777,12 +1807,12 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                 >
                                   {/* 工作空间图标 */}
                                   <div
-                                    className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg overflow-hidden bg-gradient-to-br from-orange-100 to-amber-100 shadow-sm border border-orange-200/50 flex items-center justify-center flex-shrink-0`}
+                                    className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg overflow-hidden ${darkMode ? 'bg-gradient-to-br from-orange-900/50 to-amber-900/50 border-orange-700/50' : 'bg-gradient-to-br from-orange-100 to-amber-100 border-orange-200/50'} shadow-sm border flex items-center justify-center flex-shrink-0`}
                                   >
                                     {workspace.icon ? (
                                       <span className="text-lg">{workspace.icon}</span>
                                     ) : (
-                                      <i className="fa-solid fa-link text-orange-600 text-sm"></i>
+                                      <i className={`fa-solid fa-link ${darkMode ? 'text-orange-400' : 'text-orange-600'} text-sm`}></i>
                                     )}
                                   </div>
 
@@ -1792,12 +1822,12 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                       className={`flex items-center gap-2 ${isMobile ? 'mb-0.5' : 'mb-1'}`}
                                     >
                                       <h4
-                                        className={`font-medium text-gray-800 ${isMobile ? 'text-xs' : 'text-sm'} truncate`}
+                                        className={`font-medium ${darkMode ? 'text-gray-100' : 'text-gray-800'} ${isMobile ? 'text-xs' : 'text-sm'} truncate`}
                                       >
                                         {workspace.title}
                                       </h4>
                                       {(workspace as any).matchType && !isMobile && (
-                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-700 text-xs rounded-full font-medium">
+                                        <span className={`px-2 py-0.5 ${darkMode ? 'bg-orange-900/50 text-orange-300' : 'bg-orange-100 text-orange-700'} text-xs rounded-full font-medium`}>
                                           {(workspace as any).matchType}
                                         </span>
                                       )}
@@ -1805,12 +1835,12 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
                                     {/* 分类和描述 */}
                                     <div
-                                      className={`flex items-center gap-1 ${isMobile ? 'text-[10px]' : 'text-xs'} text-gray-500`}
+                                      className={`flex items-center gap-1 ${isMobile ? 'text-[10px]' : 'text-xs'} ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}
                                     >
                                       {/* 分类标签 */}
                                       {workspace.category && (
                                         <>
-                                          <span className="px-1.5 py-0.5 bg-orange-100 text-orange-600 rounded text-xs font-medium">
+                                          <span className={`px-1.5 py-0.5 ${darkMode ? 'bg-orange-900/50 text-orange-300' : 'bg-orange-100 text-orange-600'} rounded text-xs font-medium`}>
                                             {workspace.category}
                                           </span>
                                         </>
@@ -1837,14 +1867,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
                                     {/* 描述显示 */}
                                     {workspace.description && !isMobile && (
-                                      <div className="mt-1 text-xs text-gray-600 truncate">
+                                      <div className={`mt-1 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'} truncate`}>
                                         {workspace.description}
                                       </div>
                                     )}
                                   </div>
 
                                   {/* 快捷键提示 */}
-                                  <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                                  <div className={`text-xs ${darkMode ? 'text-blue-300 bg-blue-900/50' : 'text-blue-600 bg-blue-100'} px-2 py-1 rounded`}>
                                     Enter
                                   </div>
                                 </div>
@@ -1856,14 +1886,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
 
                       {/* 搜索引擎建议部分 */}
                       {suggestions.length > 0 && (
-                        <div className="border-b border-gray-200/50 last:border-b-0">
+                        <div className={`border-b last:border-b-0 ${darkMode ? 'border-gray-700/50' : 'border-gray-200/50'}`}>
                           <div
-                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100`}
+                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} ${darkMode ? 'bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border-b border-emerald-700/50' : 'bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100'}`}
                           >
                             <div className="flex items-center gap-2">
-                              <i className="fa-solid fa-magnifying-glass text-emerald-500 text-sm"></i>
+                              <i className={`fa-solid fa-magnifying-glass ${darkMode ? 'text-emerald-400' : 'text-emerald-500'} text-sm`}></i>
                               <span
-                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-emerald-700`}
+                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}
                               >
                                 搜索建议
                               </span>
@@ -1881,7 +1911,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                             return (
                               <div
                                 key={suggestion.id}
-                                className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} ${isHint ? 'cursor-default' : 'cursor-pointer'} transition-all duration-200 border-b border-gray-100/50 last:border-b-0 select-none ${isSelected
+                                className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} ${isHint ? 'cursor-default' : 'cursor-pointer'} transition-all duration-200 border-b ${darkMode ? 'border-gray-700/50' : 'border-gray-100/50'} last:border-b-0 select-none ${isSelected
                                   ? isTodoAction && !isHint
                                     ? isAdd
                                       ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-200'
@@ -2046,7 +2076,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                         </div>
                                       </div>
                                     ) : (
-                                      <div className="font-medium text-sm truncate select-none">
+                                      <div className={`font-medium text-sm truncate select-none ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>
                                         {suggestion.text}
                                       </div>
                                     )}
@@ -2096,8 +2126,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                   style={{ display: 'inline-block' }}
                 />
 
-                {/* 悬停时显示的AI图标（以搜索图标为圆心） */}
-                {isHovered && (
+                {/* 悬停时显示的AI图标（以搜索图标为圆心）- 圆形布局模式 - 移动端隐藏 */}
+                {isHovered && !isMobile && aiIconDisplayMode === 'circular' && (
                   <div
                     className="absolute z-30"
                     style={{
@@ -2260,6 +2290,49 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                   </div>
                 )}
               </motion.button>
+
+              {/* 下拉面板式AI图标 - 移动端隐藏 */}
+              {isHovered && !isMobile && aiIconDisplayMode === 'dropdown' && !searchQuery && (
+                <div
+                  className="absolute z-30 opacity-0"
+                  style={{
+                    top: 'calc(100% + 8px)',
+                    left: 0,
+                    right: 0,
+                    display: 'flex',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                    animation: 'fade-in-up 0.4s ease-out 0.45s forwards',
+                  }}
+                >
+                  <div
+                    className="rounded-xl px-2 py-1 backdrop-blur-md border border-white/20"
+                    style={{
+                      backgroundColor: `rgba(${searchBarColor}, ${searchBarOpacity})`,
+                      pointerEvents: 'auto',
+                      marginLeft: 120,
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {emojiList.map((emoji, i) => (
+                        <div
+                          key={i}
+                          onClick={() => window.open(emojiLinks[i], '_blank')}
+                          className="flex items-center justify-center p-1.5 rounded-lg cursor-pointer transition-transform duration-150 hover:bg-white/20 hover:scale-110 active:scale-95"
+                          style={{ userSelect: 'none' }}
+                        >
+                          <div
+                            className="flex items-center justify-center"
+                            style={{ width: 26, height: 26 }}
+                          >
+                            {emoji}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </motion.div>
           </form>
         </motion.div>

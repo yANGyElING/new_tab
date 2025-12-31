@@ -6,7 +6,7 @@ on:
 
 # 设置 GITHUB_TOKEN 的权限
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -23,7 +23,9 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -36,14 +38,31 @@ jobs:
         
     - name: Install dependencies
       run: pnpm install
-      
+
+    - name: Update version
+      run: node scripts/update-version.cjs
+
+    - name: Commit version update
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add package.json src/version.json
+        git diff --staged --quiet || git commit -m "chore: bump version [skip ci]"
+        git push || echo "No changes to push"
+
+    - name: Update Service Worker version
+      run: pnpm update-sw-version
+      env:
+        GITHUB_SHA: ${{ github.sha }}
+
     - name: Build
-      run: pnpm run build
+      run: pnpm run build:client
       env:
         # Supabase 配置变量
         VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
         VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        
+        VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
+
     - name: Setup Pages
       uses: actions/configure-pages@v4
       

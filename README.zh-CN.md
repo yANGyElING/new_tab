@@ -1,10 +1,17 @@
 <div align="center">
 
-# Jiang's Tab (江的标签页)
+
+# 西红柿标签页 (Tomato Tabs)
 ### 你的个人网络门户
 
+https://github.com/user-attachments/assets/66627637-b57b-4973-8f68-977905b84fd1
+
 <p align="center">
-  <img src="image.png" alt="Jiang's Tab Screenshot" width="800px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <img src="image-1.png" alt="Tomato Tabs Screenshot" width="800px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+</p>
+
+<p align="center">
+  <img src="image.png" alt="Tomato Tabs Screenshot" width="800px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 </p>
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&color=2563EB)](https://opensource.org/licenses/Apache-2.0)
@@ -13,7 +20,7 @@
 [![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?style=for-the-badge&logo=vite&logoColor=white&color=646CFF)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Enabled-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&color=3ECF8E)](https://supabase.com/)
 
-[🌐 在线演示](https://jiangjiang.cc) · [🐛 报告问题](https://github.com/jiangjianghong/jiang_ai_web/issues) · [✨ 功能建议](https://github.com/jiangjianghong/jiang_ai_web/issues)
+[🌐 在线演示](https://jiangjiang.cc) · [🐛 报告问题](https://github.com/jiangjianghong/tomato-tab/issues) · [✨ 功能建议](https://github.com/jiangjianghong/tomato-tab/issues)
 
 **[ [English](README.md) | 简体中文 ]**
 
@@ -36,9 +43,9 @@
 
 ## 📖 简介
 
-**Jiang's Tab** 不仅仅是另一个浏览器起始页。它是一个**现代化、高度可定制且视觉惊艳**的个人仪表盘，旨在让你的每日网络浏览体验令人愉悦。
+**西红柿标签页** 不仅仅是另一个浏览器起始页。它是一个**现代化、高度可定制且视觉惊艳**的个人仪表盘，旨在让你的每日网络浏览体验令人愉悦。
 
-我们在构建时兼顾了性能与美学，将强大的书签管理与随你风格而变的精美界面相结合。无论你需要一个集成了 Notion 的高效工作中心，还是一个伴随每日壁纸和诗词的宁静空间，Jiang's Tab 都能完美适配**你**的需求。
+我们在构建时兼顾了性能与美学，将强大的书签管理与随你风格而变的精美界面相结合。无论你需要一个集成了 Notion 的高效工作中心，还是一个伴随每日壁纸和诗词的宁静空间，西红柿标签页 都能完美适配**你**的需求。
 
 ## ✨ 核心特性
 
@@ -99,8 +106,8 @@
 
 1. **克隆仓库**
    ```bash
-   git clone https://github.com/jiangjianghong/jiang_ai_web.git
-   cd jiang_ai_web
+   git clone https://github.com/jiangjianghong/tomato-tab.git
+   cd tomato-tab
    ```
 
 2. **安装依赖**
@@ -168,13 +175,49 @@ Vercel 对 Vite 应用提供零配置支持。
 <details>
 <summary><b>1️⃣ SQL 数据库初始化 (一键配置)</b></summary>
 
-我们提供了一个**统一部署脚本**，可以自动创建所有数据表（资料、设置、网站、统计）、安全策略以及存储桶。
+我们提供了一个**统一部署脚本**，可以自动创建所有数据表（资料、设置、网站、统计、公告、管理员）、安全策略以及存储桶。
 
 1. 复制 **[supabase_deploy.sql](supabase_deploy.sql)** 文件的全部内容。
 2. 粘贴到你的 **Supabase SQL Editor** 中。
 3. 点击 **Run** 运行。
 
 搞定！你的数据库已经完全配置好了。
+
+</details>
+
+<details>
+<summary><b>2️⃣ 管理员配置 (可选)</b></summary>
+
+如果你想启用管理后台功能，请执行以下步骤：
+
+**1. 配置环境变量**
+
+在 `.env` 文件中添加管理员邮箱：
+```bash
+VITE_ADMIN_EMAIL=your-admin@example.com
+```
+
+**2. 设置管理员角色**
+
+在 Supabase SQL Editor 中执行：
+```sql
+UPDATE user_profiles SET role = 'super_admin' WHERE email = 'your-admin@example.com';
+```
+
+**3. 访问管理后台**
+
+使用管理员账号登录后，访问 `/admin` 即可进入管理后台。
+
+**管理后台功能包括：**
+- 📊 **仪表盘** - 数据可视化图表（折线图、柱状图）
+- 👥 **用户管理** - 用户列表、详情查看、禁用/解禁
+- 📈 **行为分析** - 活跃时段分布、用户角色分布、热门搜索词
+- ⚡ **实时监控** - 在线用户、Realtime 订阅
+- 📢 **公告管理** - 创建、编辑、删除公告
+- 📋 **操作日志** - 管理员操作审计记录
+- ⚙️ **系统监控** - API 健康检测、响应时间
+
+> ⚠️ **隐私说明**：管理员只能查看聚合统计数据，无法访问用户的网站列表等个人数据。
 
 </details>
 
@@ -243,7 +286,20 @@ src/
 - [ ] **规划中**: AI 驱动的书签智能分类
 - [ ] **规划中**: 可公开分享的仪表盘
 
-查看 [Issue 列表](https://github.com/jiangjianghong/jiang_ai_web/issues) 了解完整规划（以及已知问题）。
+查看 [Issue 列表](https://github.com/jiangjianghong/tomato-tab/issues) 了解完整规划（以及已知问题）。
+
+## TODO
+
+- 调整部分滑块设置时（例如搜索框圆角），设置本身变成透明，松手恢复，这样可以直观的看到设置效果
+- AI 图标更好的表现形式（已经新增一种）
+- 更多的壁纸源，包括动态壁纸
+- 自定义搜索引擎
+- [x] 氛围效果，例如下雪（已支持）
+- [x] Admin 后台精确用户活跃时间显示
+- [x] Admin 后台数据可视化图表
+- [x] Admin 后台实时监控功能
+- [x] Admin 后台操作日志审计
+
 
 ---
 
@@ -263,18 +319,18 @@ src/
 
 ## 📈 Star 趋势
 
-<a href="https://star-history.com/#jiangjianghong/jiang_ai_web&Date">
+<a href="https://star-history.com/#jiangjianghong/tomato-tab&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/jiang_ai_web&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/jiang_ai_web&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jiangjianghong/jiang_ai_web&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/tomato-tab&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/tomato-tab&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jiangjianghong/tomato-tab&type=Date" />
  </picture>
 </a>
 
 ## 👥 贡献者
 
-<a href="https://github.com/jiangjianghong/jiang_ai_web/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=jiangjianghong/jiang_ai_web" />
+<a href="https://github.com/jiangjianghong/tomato-tab/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=jiangjianghong/tomato-tab" />
 </a>
 
 ---

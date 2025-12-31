@@ -13,10 +13,10 @@ html {
 
 :root {
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji';
+    'Microsoft YaHei', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Noto Sans CJK SC', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
   line-height: 1.5;
-  font-weight: 400;
+  font-weight: 450;
   font-synthesis: none;
   text-rendering: optimizelegibility;
   -webkit-font-smoothing: antialiased;
@@ -25,6 +25,17 @@ html {
   /* 兼容性修复 */
   text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+/* 全局背景色 - 首屏加载优化 */
+body {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  min-height: 100vh;
+}
+
+#root {
+  background: transparent;
+  min-height: 100vh;
 }
 
 /* 全局兼容性样式 */
@@ -53,6 +64,21 @@ button,
   100% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.7) rotate(var(--angle, 0deg)) translateY(-70px);
+  }
+}
+
+/* 壁纸骨架屏渐变动画 */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
   }
 }
 
@@ -149,14 +175,12 @@ button,
 
   60% {
     opacity: 1;
-    transform: translate(-50%, -50%) rotate(var(--angle, 0deg))
-      translateY(calc(var(--distance, 80px) * 0.7)) skewY(var(--curve, 0));
+    transform: translate(-50%, -50%) rotate(var(--angle, 0deg)) translateY(calc(var(--distance, 80px) * 0.7)) skewY(var(--curve, 0));
   }
 
   100% {
     opacity: 0;
-    transform: translate(-50%, -50%) rotate(var(--angle, 0deg)) translateY(var(--distance, 80px))
-      skewY(calc(var(--curve, 0px) * 1.5));
+    transform: translate(-50%, -50%) rotate(var(--angle, 0deg)) translateY(var(--distance, 80px)) skewY(calc(var(--curve, 0px) * 1.5));
   }
 }
 
@@ -199,6 +223,60 @@ button,
 
 .slider::-webkit-slider-thumb:hover {
   background: #2563eb;
+}
+
+/* 通用 range input 深色模式样式 */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.dark input[type="range"]::-webkit-slider-thumb {
+  background: #60a5fa;
+  border: 2px solid #9ca3af;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 40%);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.dark input[type="range"]::-moz-range-thumb {
+  background: #60a5fa;
+  border: 2px solid #9ca3af;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 40%);
+}
+
+/* 滑轨 track 样式 */
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.dark input[type="range"]::-webkit-slider-runnable-track {
+  background: #374151;
+}
+
+input[type="range"]::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.dark input[type="range"]::-moz-range-track {
+  background: #374151;
 }
 
 .slider::-moz-range-thumb {
@@ -363,7 +441,7 @@ input[type='range']::-moz-range-thumb:hover {
   box-shadow: inset 0 2px 4px rgb(0 0 0 / 10%);
 }
 
-.modern-switch input:checked + .slider {
+.modern-switch input:checked+.slider {
   background: linear-gradient(135deg, #3b82f6, #6366f1);
   box-shadow: 0 4px 12px rgb(59 130 246 / 40%);
 }
@@ -381,7 +459,7 @@ input[type='range']::-moz-range-thumb:hover {
   box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
 }
 
-.modern-switch input:checked + .slider::before {
+.modern-switch input:checked+.slider::before {
   transform: translateX(20px);
   box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
 }
@@ -441,3 +519,48 @@ input[type='range']::-moz-range-thumb:hover {
   -ms-user-select: text !important;
 }
 
+/* ==================== 移动端优化样式 ==================== */
+
+/* 隐藏滚动条（用于水平导航） */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* 移动端触摸优化 */
+@media (max-width: 640px) {
+  /* 减少动画持续时间提升性能 */
+  .settings-section {
+    animation-duration: 0.2s !important;
+  }
+  
+  /* 优化滑块控件触摸区域 */
+  input[type="range"] {
+    height: 44px;
+    padding: 8px 0;
+  }
+  
+  input[type="range"]::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+  
+  input[type="range"]::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* 安全区域适配（iPhone X 及以上） */
+@supports (padding: max(0px)) {
+  .safe-area-bottom {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-top {
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+}

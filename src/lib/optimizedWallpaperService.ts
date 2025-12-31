@@ -1,5 +1,5 @@
-// Optimized Wallpaper Service - Direct Unsplash Source Integration
-// Uses Unsplash Source URL (no API key required) with local caching
+// 优化的壁纸服务 - 解决白屏问题，提升加载体验
+// 使用浏览器原生 Blob API 处理图片数据
 import { indexedDBCache } from './indexedDBCache';
 import { logger } from './logger';
 import { errorHandler } from './errorHandler';
@@ -7,26 +7,11 @@ import { memoryManager } from './memoryManager';
 import { createWallpaperRequest } from './requestManager';
 import { createTimeoutSignal } from './abortUtils';
 import { customWallpaperManager } from './customWallpaperManager';
+import { getLocalDateString } from './dateUtils';
 
-// Unsplash wallpaper topics (nature landscapes)
-const WALLPAPER_TOPICS = [
-  'nature',
-  'landscape',
-  'mountains',
-  'ocean',
-  'forest',
-  'sky',
-  'sunset',
-  'sunrise',
-];
-
-// Resolution configurations
-const RESOLUTION_CONFIG: Record<string, { width: number; height: number }> = {
-  '4k': { width: 3840, height: 2160 },
-  '1080p': { width: 1920, height: 1080 },
-  '720p': { width: 1366, height: 768 },
-  mobile: { width: 1080, height: 1920 },
-};
+// 重试相关配置 - 指数退避策略
+const RETRY_DELAYS_MS = [30 * 1000, 60 * 1000, 120 * 1000, 240 * 1000]; // 30s, 60s, 120s, 240s
+const MAX_RETRY_COUNT = 8;
 
 class OptimizedWallpaperService {
   private static instance: OptimizedWallpaperService;
@@ -39,8 +24,10 @@ class OptimizedWallpaperService {
       needsUpdate: boolean;
     }>
   >();
-  private fallbackImage = '/icon/favicon.png';
-  private cleanupTimer: number | null = null;
+  private fallbackImage = '/icon/favicon.png'; // 本地备用图片
+  private cleanupTimer: number | null = null; // 定时清理器ID
+  private retryTimers = new Map<string, number>(); // 重试定时器
+  private retryCounts = new Map<string, number>(); // 内存中的重试计数
 
   static getInstance(): OptimizedWallpaperService {
     if (!OptimizedWallpaperService.instance) {
@@ -82,6 +69,32 @@ class OptimizedWallpaperService {
       window.addEventListener('beforeunload', () => {
         this.stopCleanupTimer();
       });
+
+      // 页面可见时检查是否需要更新壁纸
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this.onPageVisible();
+        }
+      });
+    }
+  }
+
+  // 页面变为可见时的处理
+  private onPageVisible(): void {
+    // 检查今天是否有成功的壁纸更新记录
+    const resolutions = ['1080p', '720p', '4k', 'mobile'];
+    for (const resolution of resolutions) {
+      const successKey = `wallpaper-update-success-${resolution}`;
+      const lastSuccess = localStorage.getItem(successKey);
+      const today = getLocalDateString();
+
+      if (lastSuccess !== today) {
+        // 今天还没成功更新过，尝试更新
+        logger.wallpaper.info(`页面可见，检查 ${resolution} 壁纸是否需要更新`);
+        this.updateWallpaperInBackground(resolution).catch((error) => {
+          logger.wallpaper.warn(`可见性触发更新 ${resolution} 失败`, error);
+        });
+      }
     }
   }
 
@@ -94,12 +107,10 @@ class OptimizedWallpaperService {
     }
   }
 
-  // 获取本地日期字符串 (YYYY-MM-DD)
+  // 获取中国时间的日期字符串 (YYYY-MM-DD)
+  // 已迁移到共享的 dateUtils.ts，这里保留包装方法以保持 API 兼容
   private getLocalDateString(date: Date = new Date()): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return getLocalDateString(date);
   }
 
   // 获取今天的缓存键 - 基于本地时间
@@ -108,16 +119,71 @@ class OptimizedWallpaperService {
     return `wallpaper-optimized:${resolution}-${today}`;
   }
 
-  // 检查是否需要强制刷新（跨天检查）
-  private shouldForceRefresh(lastUpdateKey: string): boolean {
-    const storedDate = localStorage.getItem(lastUpdateKey);
-    const today = this.getLocalDateString();
+  // 检查是否需要强制刷新（跨天检查）- 只检查不设置标记
+  // 标记会在成功下载后由 markUpdateSuccess 设置
+  private shouldForceRefresh(resolution: string): boolean {
+    const successKey = `wallpaper-update-success-${resolution}`;
+    const lastSuccessDate = localStorage.getItem(successKey);
+    const today = getLocalDateString();
 
-    if (!storedDate || storedDate !== today) {
-      localStorage.setItem(lastUpdateKey, today);
+    // 如果今天还没成功更新过，需要刷新
+    if (!lastSuccessDate || lastSuccessDate !== today) {
       return true;
     }
     return false;
+  }
+
+  // 标记今天的壁纸更新成功
+  private markUpdateSuccess(resolution: string): void {
+    const successKey = `wallpaper-update-success-${resolution}`;
+    const today = getLocalDateString();
+    localStorage.setItem(successKey, today);
+    logger.wallpaper.info(`标记 ${resolution} 壁纸更新成功: ${today}`);
+
+    // 清除重试定时器和重试计数
+    const retryKey = `retry-${resolution}`;
+    if (this.retryTimers.has(retryKey)) {
+      clearTimeout(this.retryTimers.get(retryKey));
+      this.retryTimers.delete(retryKey);
+    }
+    // 清除内存中的重试计数
+    this.retryCounts.delete(resolution);
+  }
+
+  // 安排延迟重试（指数退避策略）
+  private scheduleRetry(resolution: string): void {
+    const retryKey = `retry-${resolution}`;
+
+    // 避免重复安排
+    if (this.retryTimers.has(retryKey)) {
+      return;
+    }
+
+    // 获取并增加重试计数（内存中）
+    const retryCount = this.retryCounts.get(resolution) || 0;
+
+    // 检查是否超过最大重试次数
+    if (retryCount >= MAX_RETRY_COUNT) {
+      logger.wallpaper.warn(`${resolution} 壁纸已达到最大重试次数 (${MAX_RETRY_COUNT})，停止重试`);
+      return;
+    }
+
+    // 循环使用延迟数组：30s, 60s, 120s, 240s, 30s, 60s, 120s, 240s
+    const delayIndex = retryCount % RETRY_DELAYS_MS.length;
+    const delayMs = RETRY_DELAYS_MS[delayIndex];
+    logger.wallpaper.info(`安排 ${resolution} 壁纸 ${delayMs / 1000} 秒后重试 (第 ${retryCount + 1}/${MAX_RETRY_COUNT} 次)`);
+
+    const timerId = setTimeout(() => {
+      this.retryTimers.delete(retryKey);
+      // 更新重试计数
+      this.retryCounts.set(resolution, retryCount + 1);
+      logger.wallpaper.info(`执行 ${resolution} 壁纸延迟重试 (第 ${retryCount + 1}/${MAX_RETRY_COUNT} 次)`);
+      this.updateWallpaperInBackground(resolution).catch((error) => {
+        logger.wallpaper.warn(`延迟重试 ${resolution} 失败`, error);
+      });
+    }, delayMs) as any;
+
+    this.retryTimers.set(retryKey, timerId);
   }
 
   // 执行每日检查 - 确保壁纸是最新的
@@ -167,55 +233,36 @@ class OptimizedWallpaperService {
     return `wallpaper-optimized:${resolution}-${this.getLocalDateString(yesterday)}`;
   }
 
-  // Generate daily seed for consistent wallpaper per day
-  private getDailySeed(): number {
-    const today = this.getLocalDateString();
-    let hash = 0;
-    for (let i = 0; i < today.length; i++) {
-      const char = today.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+  // 移除未使用的方法
+
+  // 获取 Picsum Photos 壁纸URL（无需 API Key）
+  private async getWallpaperUrl(resolution: string): Promise<string> {
+    try {
+      const resolutionMap = {
+        '4k': '3840/2160',
+        '1080p': '1920/1080',
+        '720p': '1366/768',
+        mobile: '1080/1920',
+      };
+
+      const targetResolution =
+        resolutionMap[resolution as keyof typeof resolutionMap] || '1920/1080';
+
+      // Picsum Photos API - 完全免费，无需 API Key
+      // 使用日期作为随机种子，确保每天获取不同的壁纸
+      const today = this.getLocalDateString();
+      const randomSeed = today.replace(/-/g, ''); // 将日期转换为数字种子
+
+      // Picsum Photos URL 格式: https://picsum.photos/seed/{seed}/{width}/{height}
+      const url = `https://picsum.photos/seed/${randomSeed}/${targetResolution}`;
+
+      logger.wallpaper.info('生成 Picsum Photos 壁纸 URL', { resolution, url });
+
+      return url;
+    } catch (error) {
+      logger.wallpaper.warn('Picsum Photos 壁纸服务访问失败', error);
+      return this.fallbackImage;
     }
-    return Math.abs(hash);
-  }
-
-  // Get daily topic index (rotates through topics)
-  private getDailyTopicIndex(): number {
-    const today = new Date();
-    const dayOfYear = Math.floor(
-      (today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000
-    );
-    return dayOfYear % WALLPAPER_TOPICS.length;
-  }
-
-  // Build Unsplash Source URL (no API key required)
-  private getUnsplashSourceUrl(resolution: string): string {
-    const config = RESOLUTION_CONFIG[resolution] || RESOLUTION_CONFIG['1080p'];
-    const { width, height } = config;
-    const topic = WALLPAPER_TOPICS[this.getDailyTopicIndex()];
-    const seed = this.getDailySeed();
-
-    // Unsplash Source URL format: https://source.unsplash.com/{width}x{height}/?{topic}&sig={seed}
-    return `https://source.unsplash.com/${width}x${height}/?${topic}&sig=${seed}`;
-  }
-
-  // Build Picsum fallback URL
-  private getPicsumUrl(resolution: string): string {
-    const config = RESOLUTION_CONFIG[resolution] || RESOLUTION_CONFIG['1080p'];
-    const { width, height } = config;
-    const seed = this.getDailySeed();
-
-    return `https://picsum.photos/seed/${seed}/${width}/${height}`;
-  }
-
-  // Get wallpaper URL - Picsum first (better CORS support), Unsplash as fallback
-  private getWallpaperUrl(resolution: string): string {
-    return this.getPicsumUrl(resolution);
-  }
-
-  // Get fallback wallpaper URL (Unsplash Source - may have CORS issues)
-  private getFallbackWallpaperUrl(resolution: string): string {
-    return this.getUnsplashSourceUrl(resolution);
   }
 
   // 智能获取缓存（今天 > 昨天 > 更早）
@@ -300,32 +347,63 @@ class OptimizedWallpaperService {
     return undefined;
   }
 
-  // Download and cache wallpaper
+  // 下载并缓存壁纸
   private async downloadAndCache(
     url: string,
     resolution: string
-  ): Promise<{ blobUrl: string; originalUrl: string }> {
+  ): Promise<{ blobUrl: string; originalUrl: string; isFallback?: boolean }> {
     try {
-      logger.wallpaper.info('开始下载壁纸', { url: url.substring(0, 80) });
+      logger.wallpaper.info('开始下载壁纸', { url: url.substring(0, 50) });
 
-      // Picsum and Unsplash support CORS natively, no proxy needed
-      const response = await createWallpaperRequest(url, {
+      // Picsum Photos 直接返回图片，无需代理，原生支持 CORS
+      const imageResponse = await createWallpaperRequest(url, {
         mode: 'cors',
-        headers: { Accept: 'image/*' },
-        signal: createTimeoutSignal(20000), // 20s timeout for large images
+        signal: createTimeoutSignal(15000), // 15秒超时
       });
 
-      const blob = await response.blob();
+      // 检查图片响应
+      if (!imageResponse.ok) {
+        throw new Error(`图片下载失败: ${imageResponse.status}`);
+      }
+
+      const contentType = imageResponse.headers.get('Content-Type') || '';
+      if (!contentType.includes('image/')) {
+        logger.wallpaper.error('Picsum 返回非图片响应', {
+          status: imageResponse.status,
+          contentType,
+        });
+        throw new Error(`Picsum 返回了无效的响应: ${contentType}`);
+      }
+
+      const blob = await imageResponse.blob();
+
+      // 验证blob是否有效
+      if (blob.size === 0) {
+        throw new Error('下载的壁纸数据为空');
+      }
+
+      // 基本验证：4K壁纸应该至少 500KB
+      if (resolution === '4k' && blob.size < 500 * 1024) {
+        logger.wallpaper.warn(`4K壁纸大小异常 (${Math.round(blob.size / 1024)}KB)，跳过缓存`);
+        const blobUrl = await memoryManager.createBlobUrl(blob, 'wallpaper');
+        return { blobUrl, originalUrl: url, isFallback: true };
+      }
+
       const blobUrl = await memoryManager.createBlobUrl(blob, 'wallpaper');
 
-      // Cache to IndexedDB asynchronously
+      logger.wallpaper.debug('壁纸源 URL', {
+        requestUrl: url,
+        actualImageUrl: url,
+      });
+
+      // 异步缓存到IndexedDB（保存 Blob）
       const cacheKey = this.getTodayCacheKey(resolution);
       indexedDBCache
-        .set(cacheKey, blob, 48 * 60 * 60 * 1000) // 48h cache
+        .set(cacheKey, blob, 48 * 60 * 60 * 1000) // 48小时缓存
         .then(() => logger.wallpaper.info('壁纸已缓存到IndexedDB'))
         .catch((error) => logger.wallpaper.warn('缓存壁纸失败', error));
 
-      // Save original URL metadata
+      // 保存壁纸源 URL 元数据（用于收藏功能去重）
       const metadataKey = `${cacheKey}-metadata`;
       indexedDBCache
         .set(
@@ -333,7 +411,7 @@ class OptimizedWallpaperService {
           new Blob([JSON.stringify({ originalUrl: url })], { type: 'application/json' }),
           48 * 60 * 60 * 1000
         )
-        .then(() => logger.wallpaper.info('壁纸元数据已缓存'))
+        .then(() => logger.wallpaper.info('壁纸元数据已缓存', { originalUrl: url }))
         .catch((error) => logger.wallpaper.warn('缓存元数据失败', error));
 
       logger.wallpaper.info('壁纸下载完成', {
@@ -341,12 +419,13 @@ class OptimizedWallpaperService {
         originalUrl: url,
       });
 
-      return { blobUrl, originalUrl: url };
+      return { blobUrl, originalUrl: url, isFallback: false };
     } catch (error) {
       logger.wallpaper.error('下载壁纸失败', error);
       throw error;
     }
   }
+
 
   // 主要方法：获取壁纸（优化的加载策略）
   async getWallpaper(resolution: string): Promise<{
@@ -411,96 +490,144 @@ class OptimizedWallpaperService {
       }
 
       // 0.1 检查是否需要强制刷新（跨天检查）
-      const forceRefreshKey = `wallpaper-last-update-${resolution}`;
-      const shouldRefresh = this.shouldForceRefresh(forceRefreshKey);
+      const shouldRefresh = this.shouldForceRefresh(resolution);
 
-      if (shouldRefresh) {
-        logger.wallpaper.info('检测到跨天，强制刷新壁纸缓存');
-        // 清理今天的缓存，强制重新下载
-        await this.clearTodayCache(resolution);
-      }
+      // 🔧 修复: 先获取旧缓存作为降级备用，不要立即删除
+      // 只有成功下载新壁纸后才清理旧缓存
+      let fallbackCache: { url: string; isToday: boolean; originalUrl?: string } | null = null;
 
-      // 1. 首先尝试智能缓存
+      // 无论是否需要刷新，都先获取缓存（用于降级或直接使用）
       const cachedResult = await this.getSmartCache(resolution);
 
-      if (cachedResult) {
-        // 🔧 检查旧缓存是否缺少 originalUrl（旧版本的缓存）
-        if (!cachedResult.originalUrl && cachedResult.isToday) {
-          logger.wallpaper.warn('⚠️ 检测到今天的缓存缺少 originalUrl，清除并重新下载');
-          await this.clearTodayCache(resolution);
-          // 继续执行，触发重新下载
-        } else if (cachedResult.originalUrl) {
-          // 有 originalUrl 的缓存，正常返回
-          const result = {
-            url: cachedResult.url,
-            isFromCache: true,
-            isToday: cachedResult.isToday,
-            needsUpdate: !cachedResult.isToday,
-            originalUrl: cachedResult.originalUrl,
-          };
+      if (shouldRefresh) {
+        logger.wallpaper.info('检测到跨天或今天未成功更新，尝试获取新壁纸');
+        // 保存旧缓存作为降级备用
+        if (cachedResult) {
+          fallbackCache = cachedResult;
+          logger.wallpaper.info('已获取旧缓存作为降级备用');
+        }
+      } else {
+        // 1. 如果不需要刷新，尝试使用智能缓存
+        if (cachedResult) {
+          // 🔧 检查旧缓存是否缺少 originalUrl（旧版本的缓存）
+          if (!cachedResult.originalUrl && cachedResult.isToday) {
+            logger.wallpaper.warn('⚠️ 检测到今天的缓存缺少 originalUrl，清除并重新下载');
+            await this.clearTodayCache(resolution);
+            // 保存缓存作为降级备用，然后继续下载
+            fallbackCache = cachedResult;
+          } else if (cachedResult.originalUrl) {
+            // 有 originalUrl 的缓存，正常返回
+            const result = {
+              url: cachedResult.url,
+              isFromCache: true,
+              isToday: cachedResult.isToday,
+              needsUpdate: !cachedResult.isToday,
+              originalUrl: cachedResult.originalUrl,
+            };
 
-          // 如果不是今天的缓存，后台更新
-          if (!cachedResult.isToday) {
-            logger.wallpaper.info('后台更新今天的壁纸');
+            // 如果不是今天的缓存，后台更新
+            if (!cachedResult.isToday) {
+              logger.wallpaper.info('后台更新今天的壁纸');
+              this.updateWallpaperInBackground(resolution).catch((error) => {
+                logger.wallpaper.warn('后台更新壁纸失败', error);
+              });
+            }
+
+            return result;
+          } else {
+            // 旧缓存但不是今天的，先用着但标记需要更新
+            logger.wallpaper.warn('⚠️ 使用旧缓存壁纸（无 originalUrl），将后台更新');
+            const result = {
+              url: cachedResult.url,
+              isFromCache: true,
+              isToday: cachedResult.isToday,
+              needsUpdate: true,
+              originalUrl: cachedResult.originalUrl, // undefined
+            };
+
+            // 后台更新以获取新壁纸和 originalUrl
             this.updateWallpaperInBackground(resolution).catch((error) => {
               logger.wallpaper.warn('后台更新壁纸失败', error);
             });
+
+            return result;
           }
-
-          return result;
-        } else {
-          // 旧缓存但不是今天的，先用着但标记需要更新
-          logger.wallpaper.warn('⚠️ 使用旧缓存壁纸（无 originalUrl），将后台更新');
-          const result = {
-            url: cachedResult.url,
-            isFromCache: true,
-            isToday: cachedResult.isToday,
-            needsUpdate: true,
-            originalUrl: cachedResult.originalUrl, // undefined
-          };
-
-          // 后台更新以获取新壁纸和 originalUrl
-          this.updateWallpaperInBackground(resolution).catch((error) => {
-            logger.wallpaper.warn('后台更新壁纸失败', error);
-          });
-
-          return result;
         }
       }
 
-      // 2. 无缓存，需要下载
-      logger.wallpaper.info('无可用缓存，开始下载新壁纸');
+      // 2. 需要下载新壁纸（无缓存或需要刷新）
+      logger.wallpaper.info(shouldRefresh ? '跨天刷新，开始下载新壁纸' : '无可用缓存，开始下载新壁纸');
+      const wallpaperUrl = await this.getWallpaperUrl(resolution);
 
-      // Try Unsplash first, fallback to Picsum
+      if (wallpaperUrl === this.fallbackImage) {
+        // Supabase 服务不可用，尝试使用旧缓存
+        if (fallbackCache) {
+          logger.wallpaper.warn('壁纸服务不可用，使用旧缓存作为降级');
+          return {
+            url: fallbackCache.url,
+            isFromCache: true,
+            isToday: false,
+            needsUpdate: true,
+            originalUrl: fallbackCache.originalUrl,
+          };
+        }
+        // 使用本地备用图片
+        return {
+          url: wallpaperUrl,
+          isFromCache: false,
+          isToday: true,
+          needsUpdate: false,
+        };
+      }
+
       try {
-        const unsplashUrl = this.getWallpaperUrl(resolution);
-        const downloaded = await this.downloadAndCache(unsplashUrl, resolution);
+        const downloaded = await this.downloadAndCache(wallpaperUrl, resolution);
+
+        // 🔧 修复: 只有真正的 Bing 壁纸才标记成功，fallback 则安排重试
+        if (!downloaded.isFallback) {
+          this.markUpdateSuccess(resolution);
+
+          // 🔧 修复: 下载成功后才清理旧缓存
+          if (shouldRefresh) {
+            logger.wallpaper.info('新壁纸下载成功，清理旧缓存');
+            // 清理昨天的缓存
+            const yesterdayKey = this.getYesterdayCacheKey(resolution);
+            await indexedDBCache.delete(yesterdayKey);
+            await indexedDBCache.delete(`${yesterdayKey}-metadata`);
+          }
+        } else {
+          logger.wallpaper.warn('下载到fallback壁纸，安排后台重试');
+          this.scheduleRetry(resolution);
+        }
+
         return {
           url: downloaded.blobUrl,
           isFromCache: false,
           isToday: true,
-          needsUpdate: false,
+          needsUpdate: downloaded.isFallback || false, // 如果是 fallback，标记需要更新
           originalUrl: downloaded.originalUrl,
         };
-      } catch (unsplashError) {
-        logger.wallpaper.warn('Unsplash download failed, trying Picsum fallback', unsplashError);
+      } catch (downloadError) {
+        // 🔧 修复: 下载失败时，使用旧缓存作为降级，而不是直接返回 fallbackImage
+        logger.wallpaper.warn('下载新壁纸失败', downloadError);
 
-        // Fallback to Picsum
-        try {
-          const picsumUrl = this.getFallbackWallpaperUrl(resolution);
-          const downloaded = await this.downloadAndCache(picsumUrl, resolution);
+        if (fallbackCache) {
+          logger.wallpaper.info('使用旧缓存作为降级显示');
+          // 安排后台重试
+          this.scheduleRetry(resolution);
           return {
-            url: downloaded.blobUrl,
-            isFromCache: false,
-            isToday: true,
-            needsUpdate: false,
-            originalUrl: downloaded.originalUrl,
+            url: fallbackCache.url,
+            isFromCache: true,
+            isToday: false,
+            needsUpdate: true,
+            originalUrl: fallbackCache.originalUrl,
           };
-        } catch (picsumError) {
-          logger.wallpaper.error('Both Unsplash and Picsum failed', picsumError);
-          throw picsumError;
         }
+
+        // 没有旧缓存可用，抛出错误让外层处理
+        throw downloadError;
       }
+
     } catch (error) {
       const errorInfo = errorHandler.handleError(error as Error, 'wallpaper-load');
       logger.wallpaper.error('获取壁纸失败，使用备用图片', errorInfo);
@@ -509,28 +636,35 @@ class OptimizedWallpaperService {
         url: this.fallbackImage,
         isFromCache: false,
         isToday: true,
-        needsUpdate: false,
+        needsUpdate: true, // 🔧 修复: 标记需要更新，后续会重试
       };
     }
   }
 
-  // Background wallpaper update with fallback
+  // 后台更新壁纸
   private async updateWallpaperInBackground(resolution: string): Promise<void> {
     try {
-      const unsplashUrl = this.getWallpaperUrl(resolution);
-      await this.downloadAndCache(unsplashUrl, resolution);
-      logger.wallpaper.info('Background wallpaper update completed (Unsplash)');
-    } catch (unsplashError) {
-      logger.wallpaper.warn('Unsplash background update failed, trying Picsum', unsplashError);
-      try {
-        const picsumUrl = this.getFallbackWallpaperUrl(resolution);
-        await this.downloadAndCache(picsumUrl, resolution);
-        logger.wallpaper.info('Background wallpaper update completed (Picsum fallback)');
-      } catch (picsumError) {
-        logger.wallpaper.warn('Background wallpaper update failed completely', picsumError);
+      const wallpaperUrl = await this.getWallpaperUrl(resolution);
+      if (wallpaperUrl !== this.fallbackImage) {
+        const result = await this.downloadAndCache(wallpaperUrl, resolution);
+
+        // 🔧 修复: 只有真正的 Bing 壁纸才标记成功
+        // Fallback 壁纸不设置成功标记，允许后续重试获取真正的壁纸
+        if (result.blobUrl && !result.isFallback) {
+          this.markUpdateSuccess(resolution);
+          logger.wallpaper.info('后台壁纸更新完成（非fallback）');
+        } else if (result.isFallback) {
+          logger.wallpaper.warn('后台更新获取到fallback壁纸，安排重试');
+          this.scheduleRetry(resolution);
+        }
       }
+    } catch (error) {
+      logger.wallpaper.warn('后台壁纸更新失败，安排重试', error);
+      // 🔧 修复: 失败时安排延迟重试
+      this.scheduleRetry(resolution);
     }
   }
+
 
   // 预加载壁纸（在空闲时间）
   async preloadWallpapers(): Promise<void> {

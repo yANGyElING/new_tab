@@ -8,11 +8,20 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithGithub: () => Promise<void>;
+  loginWithNotion: () => Promise<void>;
+  linkWithGoogle: () => Promise<void>;
+  linkWithGithub: () => Promise<void>;
+  linkWithNotion: () => Promise<void>;
+  unlinkIdentity: (provider: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
   reloadUser: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  updateEmail: (newEmail: string) => Promise<void>; // 修改主邮箱
   resetPasswordForEmail: (email: string) => Promise<void>;
+  getPrimaryEmail: () => string | null; // 获取主邮箱（优先 email provider）
   loading: boolean;
   isNetworkOnline: boolean;
   isSupabaseConnected: boolean;
@@ -49,6 +58,10 @@ const getLocalizedErrorMessage = (error: any): string => {
     'Email already in use': '该邮箱已被使用',
     'Weak password': '密码强度不够',
     'Invalid password': '密码不正确',
+    // 身份绑定冲突
+    'Identity is already linked': '该账号已绑定到其他用户，请先登录该账号并注销后再绑定',
+    'identity is already linked to another user': '该账号已绑定到其他用户，请先登录该账号并注销后再绑定',
+    'User with this identity already exists': '该账号已绑定到其他用户，请先登录该账号并注销后再绑定',
   };
 
   // 检查是否有匹配的错误消息
@@ -117,8 +130,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
           emailRedirectTo: window.location.origin,
           data: {
             // 用户元数据，会传递到邮件模板
-            app_name: '江江的网站',
-            welcome_message: '你好呀！欢迎使用江江的网站，点击下面的链接确认注册哦。祝您使用愉快！',
+            app_name: '西红柿标签页',
+            welcome_message: '你好呀！欢迎使用西红柿标签页，点击下面的链接确认注册哦。祝您使用愉快！',
             site_url: window.location.origin,
           },
         },
@@ -177,14 +190,221 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const loginWithGoogle = async () => {
     try {
       clearError();
+      const redirectTo = import.meta.env.VITE_SITE_URL
+        ? `${import.meta.env.VITE_SITE_URL}/auth/callback`
+        : `${window.location.origin}/auth/callback`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
         },
       });
 
       if (error) throw error;
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  };
+
+  // GitHub 登录
+  const loginWithGithub = async () => {
+    try {
+      clearError();
+      const redirectTo = import.meta.env.VITE_SITE_URL
+        ? `${import.meta.env.VITE_SITE_URL}/auth/callback`
+        : `${window.location.origin}/auth/callback`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  };
+
+  // Notion 登录
+  const loginWithNotion = async () => {
+    try {
+      clearError();
+      const redirectTo = import.meta.env.VITE_SITE_URL
+        ? `${import.meta.env.VITE_SITE_URL}/auth/callback`
+        : `${window.location.origin}/auth/callback`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'notion',
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) throw error;
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  };
+
+  // 绑定 Google 账号
+  const linkWithGoogle = async () => {
+    try {
+      clearError();
+      if (!currentUser) throw new Error('请先登录');
+
+      console.log('Linking with Google...');
+      const redirectTo = import.meta.env.VITE_SITE_URL
+        ? `${import.meta.env.VITE_SITE_URL}/auth/callback`
+        : `${window.location.origin}/auth/callback`;
+
+      const { data, error } = await supabase.auth.linkIdentity({
+        provider: 'google',
+        options: {
+          redirectTo,
+        }
+      });
+      console.log('Link identity result:', { data, error });
+
+      if (error) throw error;
+      // 链接账号通常需要跳转去Google授权
+      if (data?.url) {
+        console.log('Redirecting to:', data.url);
+        window.location.href = data.url;
+      } else {
+        console.warn('No redirection URL returned from linkIdentity');
+        throw new Error('未收到 Google 授权链接，请稍后重试');
+      }
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  }
+
+  // 绑定 GitHub 账号
+  const linkWithGithub = async () => {
+    try {
+      clearError();
+      if (!currentUser) throw new Error('请先登录');
+
+      console.log('Linking with GitHub...');
+      const redirectTo = import.meta.env.VITE_SITE_URL
+        ? `${import.meta.env.VITE_SITE_URL}/auth/callback`
+        : `${window.location.origin}/auth/callback`;
+
+      const { data, error } = await supabase.auth.linkIdentity({
+        provider: 'github',
+        options: {
+          redirectTo,
+        }
+      });
+      console.log('Link identity result:', { data, error });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        console.log('Redirecting to:', data.url);
+        window.location.href = data.url;
+      } else {
+        console.warn('No redirection URL returned from linkIdentity');
+        throw new Error('未收到 GitHub 授权链接，请稍后重试');
+      }
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  }
+
+  // 绑定 Notion 账号
+  const linkWithNotion = async () => {
+    try {
+      clearError();
+      if (!currentUser) throw new Error('请先登录');
+
+      console.log('Linking with Notion...');
+      const redirectTo = import.meta.env.VITE_SITE_URL
+        ? `${import.meta.env.VITE_SITE_URL}/auth/callback`
+        : `${window.location.origin}/auth/callback`;
+
+      const { data, error } = await supabase.auth.linkIdentity({
+        provider: 'notion',
+        options: {
+          redirectTo,
+        }
+      });
+      console.log('Link identity result:', { data, error });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        console.log('Redirecting to:', data.url);
+        window.location.href = data.url;
+      } else {
+        console.warn('No redirection URL returned from linkIdentity');
+        throw new Error('未收到 Notion 授权链接，请稍后重试');
+      }
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  }
+
+  // 解绑账号
+  const unlinkIdentity = async (provider: string) => {
+    try {
+      clearError();
+      if (!currentUser) throw new Error('请先登录');
+
+      // 获取该用户的 identities
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const identity = user?.identities?.find(id => id.provider === provider);
+      if (!identity) {
+        throw new Error(`未找到绑定了 ${provider} 的账号`);
+      }
+
+      const { error } = await supabase.auth.unlinkIdentity(identity);
+      if (error) throw error;
+
+      setSuccessMessage(`✅ 已成功解绑 ${provider} 账号`);
+      await reloadUser(); // 刷新用户信息
+
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  }
+
+  // 删除账号
+  const deleteAccount = async () => {
+    try {
+      clearError();
+      if (!currentUser) throw new Error('请先登录');
+
+      const { error } = await supabase.functions.invoke('delete-user');
+
+      if (error) throw error;
+
+      // 删除成功后登出
+      await logout();
+
+      setSuccessMessage('账号已注销');
+      setTimeout(() => setSuccessMessage(null), 3000);
+
     } catch (err: any) {
       const message = getLocalizedErrorMessage(err);
       setError(message);
@@ -264,6 +484,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // 更改主邮箱
+  const updateEmail = async (newEmail: string) => {
+    try {
+      clearError();
+
+      if (!currentUser) {
+        throw new Error('请先登录');
+      }
+
+      if (!newEmail || !newEmail.includes('@')) {
+        throw new Error('请输入有效的邮箱地址');
+      }
+
+      // 检查是否和当前邮箱相同
+      if (newEmail.toLowerCase() === currentUser.email?.toLowerCase()) {
+        throw new Error('新邮箱与当前邮箱相同');
+      }
+
+      const { error } = await supabase.auth.updateUser({
+        email: newEmail,
+      });
+
+      if (error) throw error;
+
+      setSuccessMessage('✅ 验证邮件已发送到新邮箱，请点击邮件中的链接确认更改');
+      setTimeout(() => setSuccessMessage(null), 8000);
+    } catch (err: any) {
+      const message = getLocalizedErrorMessage(err);
+      setError(message);
+      throw new Error(message);
+    }
+  };
+
   useEffect(() => {
     // 获取初始会话
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -326,7 +579,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         window.history.replaceState({}, document.title, window.location.pathname);
         // 显示成功消息
         setTimeout(() => {
-          setSuccessMessage('🎉 邮箱确认成功！欢迎使用江江的网站！');
+          setSuccessMessage('🎉 邮箱确认成功！欢迎使用西红柿标签页！');
           // 3秒后清除消息
           setTimeout(() => setSuccessMessage(null), 3000);
         }, 1000);
@@ -380,17 +633,50 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return cleanup;
   }, []);
 
+  // 获取主邮箱（优先使用 email provider，确保绑定 OAuth 后显示不变）
+  const getPrimaryEmail = (): string | null => {
+    if (!currentUser) return null;
+
+    // 优先查找 email provider 的身份（邮箱密码注册）
+    const emailIdentity = currentUser.identities?.find(
+      (identity) => identity.provider === 'email'
+    );
+    if (emailIdentity?.identity_data?.email) {
+      return emailIdentity.identity_data.email as string;
+    }
+
+    // 如果没有 email provider，按创建时间排序，使用最早的身份邮箱
+    const sortedIdentities = [...(currentUser.identities || [])].sort(
+      (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+    );
+    if (sortedIdentities.length > 0 && sortedIdentities[0].identity_data?.email) {
+      return sortedIdentities[0].identity_data.email as string;
+    }
+
+    // 最后使用 currentUser.email
+    return currentUser.email || null;
+  };
+
   const value: AuthContextType = {
     currentUser,
     session,
     login,
     register,
     loginWithGoogle,
+    loginWithGithub,
+    loginWithNotion,
+    linkWithGoogle,
+    linkWithGithub,
+    linkWithNotion,
+    unlinkIdentity,
+    deleteAccount,
     logout,
     sendVerificationEmail,
     reloadUser,
     updatePassword,
+    updateEmail,
     resetPasswordForEmail,
+    getPrimaryEmail,
     loading,
     isNetworkOnline,
     isSupabaseConnected,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTransparency } from '@/contexts/TransparencyContext';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { TodoModal } from './TodoModal';
 
 export function TimeDisplay() {
@@ -19,6 +20,7 @@ export function TimeDisplay() {
     lunchTime,
     offWorkTime,
   } = useTransparency();
+  const { isMobile } = useResponsiveLayout();
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
@@ -142,7 +144,7 @@ export function TimeDisplay() {
   return (
     <div
       className="absolute left-0 right-0 z-5 flex justify-center px-4 select-none pointer-events-none"
-      style={{ top: '-16.5vh' }} // 在搜索框和顶部的中间位置（搜索框在33vh，中间为16.5vh）
+      style={{ top: isMobile ? '-65px' : '-45px' }}
     >
       <motion.div
         className="w-full flex justify-center"
@@ -157,15 +159,14 @@ export function TimeDisplay() {
         <div
           className="relative flex flex-col items-center select-none"
           style={{
-            minHeight: '60px', // 固定最小高度，确保布局稳定
-            // 当没有日期元素时，时间向下移动以居中显示
+            minHeight: '60px',
             transform: hasAnyDateElement ? 'translateY(0)' : 'translateY(15px)',
           }}
         >
           <div
             className="text-white/80 tracking-wide mb-1 drop-shadow-sm cursor-pointer hover:text-white/90 transition-all duration-200 hover:scale-105 pointer-events-auto time-display-clickable select-none"
             style={{
-              fontSize: '4em',
+              fontSize: isMobile ? '2em' : '4em',
               fontWeight: 400,
               fontFamily: '-apple-system, system-ui, Ubuntu, Roboto, "Open Sans", "Segoe UI", "Helvetica Neue"'
             }}
@@ -213,8 +214,7 @@ export function TimeDisplay() {
             onMouseLeave={() => setIsHovered(false)}
           >
             <span
-              className={`transition-opacity duration-200 text-center absolute select-none ${workCountdownEnabled && isHovered ? 'opacity-0' : (showFullDate ? 'opacity-100' : 'opacity-0')
-                }`}
+              className={`transition-opacity duration-200 text-center absolute select-none ${workCountdownEnabled && isHovered ? 'opacity-0' : (showFullDate ? 'opacity-100' : 'opacity-0')}`}
             >
               {showFullDate ? formatDate(currentTime) : '占位文本'}
             </span>
@@ -222,22 +222,20 @@ export function TimeDisplay() {
             {/* 倒计时显示 */}
             {workCountdownEnabled && (
               <span
-                className={`transition-opacity duration-200 text-center absolute select-none ${isHovered ? 'opacity-100' : 'opacity-0'
-                  }`}
+                className={`transition-opacity duration-200 text-center absolute select-none ${isHovered ? 'opacity-100' : 'opacity-0'}`}
               >
                 {getCountdownText()}
               </span>
             )}
           </div>
         </div>
-      </motion.div >
+      </motion.div>
 
       {/* Todo弹窗 */}
-      < TodoModal
+      <TodoModal
         isOpen={showTodoModal}
-        onClose={() => setShowTodoModal(false)
-        }
+        onClose={() => setShowTodoModal(false)}
       />
-    </div >
+    </div>
   );
 }

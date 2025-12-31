@@ -1,4 +1,4 @@
-# Contributing to Jiang's Tab
+# Contributing to Tomato Tabs
 
 First off, thanks for taking the time to contribute! ❤️
 
@@ -18,11 +18,11 @@ All types of contributions are encouraged and valued. See the [Table of Contents
 
 > If you want to ask a question, we assume that you have read the available [Documentation](README.md).
 
-Before you ask a question, it is best to search for existing [Issues](https://github.com/jiangjianghong/jiang_ai_web/issues) that might help you. In case you've found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
+Before you ask a question, it is best to search for existing [Issues](https://github.com/jiangjianghong/tomato-tab/issues) that might help you. In case you've found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
 
 If you then still feel the need to ask a question and need clarification, we recommend the following:
 
-- Open an [Issue](https://github.com/jiangjianghong/jiang_ai_web/issues/new).
+- Open an [Issue](https://github.com/jiangjianghong/tomato-tab/issues/new).
 - Provide as much context as you can about what you're running into.
 - Provide project and platform versions (nodejs, npm, etc), depending on what seems relevant.
 
@@ -39,11 +39,11 @@ An effective bug report goes a long way. Use the template provided when opening 
 
 ### Suggesting Enhancements
 
-This section guides you through submitting an enhancement suggestion for Jiang's Tab, **including completely new features and minor improvements to existing functionality**. Following these guidelines will help maintainers and the community to understand your suggestion and find related suggestions.
+This section guides you through submitting an enhancement suggestion for Tomato Tabs, **including completely new features and minor improvements to existing functionality**. Following these guidelines will help maintainers and the community to understand your suggestion and find related suggestions.
 
 - **Use a clear and descriptive title** for the issue to identify the suggestion.
 - **Provide a step-by-step description of the suggested enhancement** in as much detail as possible.
-- **Explain why this enhancement would be useful** to most Jiang's Tab users.
+- **Explain why this enhancement would be useful** to most Tomato Tabs users.
 
 ### Your First Code Contribution
 

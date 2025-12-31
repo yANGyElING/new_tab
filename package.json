@@ -1,22 +1,21 @@
 {
-  "name": "project_template_react",
+  "name": "tomato-tab",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.3.65",
   "type": "module",
   "scripts": {
     "dev:client": "vite --host --port 3000",
     "dev": "pnpm dev:client",
+    "update-sw-version": "node scripts/update-sw-version.js",
     "build:client": "vite build",
-    "build": "rimraf dist && pnpm build:client && shx cp package.json dist/ && shx touch dist/build.flag",
+    "build": "rimraf dist && pnpm update-sw-version && pnpm build:client && shx cp package.json dist/ && shx touch dist/build.flag",
     "deploy": "pnpm run build && gh-pages -d dist",
-    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+    "lint": "cross-env ESLINT_USE_FLAT_CONFIG=false eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.52.0",
-    "@tsparticles/react": "^3.0.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.9.2",
-    "html2canvas": "^1.4.1",
     "pinyin-pro": "^3.27.0",
     "react": "^18.3.1",
     "react-dnd": "^16.0.1",
@@ -24,14 +23,9 @@
     "react-dom": "^18.3.1",
     "react-parallax-tilt": "^1.7.304",
     "react-router-dom": "^7.3.0",
-    "react-tilt": "^0.1.4",
-    "react-tsparticles": "^2.12.2",
     "recharts": "^2.15.1",
     "sonner": "^2.0.2",
     "tailwind-merge": "^3.0.2",
-    "tsparticles": "^2.12.0",
-    "tsparticles-engine": "^2.12.0",
-    "tsparticles-slim": "^2.12.0",
     "validator": "^13.15.15",
     "zod": "^3.24.2"
   },

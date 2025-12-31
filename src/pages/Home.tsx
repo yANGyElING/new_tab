@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { WebsiteCard } from '@/components/WebsiteCard';
 import { SearchBar } from '@/components/SearchBar';
 import { TimeDisplay } from '@/components/TimeDisplay';
 import { PoemDisplay } from '@/components/PoemDisplay';
 import { AnimatedCat } from '@/components/AnimatedCat';
+import CardEditModal from '@/components/CardEditModal';
 // 拖拽逻辑已迁移到 WebsiteCard
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useTransparency } from '@/contexts/TransparencyContext';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import EmailVerificationBanner from '@/components/EmailVerificationBanner';
@@ -17,8 +18,17 @@ import { useRAFThrottledMouseMove } from '@/hooks/useRAFThrottle';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { logger } from '@/utils/logger';
 import { customWallpaperManager } from '@/lib/customWallpaperManager';
-import UserModal from '@/components/UserModal';
-import { useAuth } from '@/contexts/SupabaseAuthContext';
+import SnowEffect from '@/components/effects/SnowEffect';
+import LeafEffect from '@/components/effects/LeafEffect';
+import AnnouncementBanner from '@/components/AnnouncementBanner';
+import AnnouncementCenter from '@/components/AnnouncementCenter';
+import { isWinterSeason, isAutumnSeason } from '@/utils/solarTerms';
+import { shouldApplyOverlay, clearAllColorCache } from '@/utils/imageColorAnalyzer';
+
+// 暴露给控制台调试用
+if (typeof window !== 'undefined') {
+  (window as any).clearWallpaperColorCache = clearAllColorCache;
+}
 
 interface HomeProps {
   websites: any[];
@@ -33,35 +43,102 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     isSettingsOpen,
     autoSortEnabled,
     isSearchFocused,
+    atmosphereMode,
+    atmosphereParticleCount,
+    atmosphereWindEnabled,
+    darkOverlayMode,
+    isSlowMotion,
+    setIsSlowMotion,
   } = useTransparency();
   const { isWorkspaceOpen, setIsWorkspaceOpen } = useWorkspace();
   const { isMobile, getGridClasses, getSearchBarLayout } = useResponsiveLayout();
-  const { currentUser } = useAuth();
-  const [showUserModal, setShowUserModal] = useState(false);
 
   // 启用自动同步（传递数据初始化状态）
   const { triggerSync } = useAutoSync(websites, dataInitialized);
 
   // 拖拽排序逻辑
-  const moveCard = (dragIndex: number, hoverIndex: number) => {
+  const moveCard = useCallback((dragIndex: number, hoverIndex: number) => {
     const newWebsites = [...websites];
     const [removed] = newWebsites.splice(dragIndex, 1);
     newWebsites.splice(hoverIndex, 0, removed);
     setWebsites(newWebsites);
-  };
+  }, [websites, setWebsites]);
 
   const [bgImage, setBgImage] = useState('');
   const [bgOriginalUrl, setBgOriginalUrl] = useState<string | undefined>(); // 原始URL用于收藏检测
-  const [bgImageLoaded, setBgImageLoaded] = useState(false);
+  const [wallpaperLoaded, setWallpaperLoaded] = useState(false); // 壁纸加载状态
   const [showSettings, setShowSettings] = useState(false);
+  const [showAddCardModal, setShowAddCardModal] = useState(false);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [isAlreadyFavorited, setIsAlreadyFavorited] = useState(false);
+  const [smartOverlayNeeded, setSmartOverlayNeeded] = useState(false); // 智能模式下是否需要遮罩
+
+  // 阻止空白区域右键菜单
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      // 检查是否点击在卡片上（卡片内部会处理自己的右键菜单）
+      const target = e.target as HTMLElement;
+      const isOnCard = target.closest('[data-website-card]');
+
+      // 如果不是在卡片上，阻止默认右键菜单
+      if (!isOnCard) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
+
+  // 鼠标按住空白区域时触发粒子慢放效果
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      // 检查是否点击在交互元素上（卡片、按钮、输入框、链接等）
+      const isInteractiveElement =
+        target.closest('[data-website-card]') ||
+        target.closest('button') ||
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('a') ||
+        target.closest('[role="button"]') ||
+        target.closest('[data-interactive]');
+
+      // 只有点击在空白区域时才触发慢放
+      if (!isInteractiveElement) {
+        setIsSlowMotion(true);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsSlowMotion(false);
+    };
+
+    const handleMouseLeave = () => {
+      setIsSlowMotion(false);
+    };
+
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [setIsSlowMotion]);
 
   // 检查当前壁纸是否已收藏
   useEffect(() => {
     const checkIfFavorited = async () => {
+      // 壁纸变化时，重置"刚刚收藏成功"的状态
+      setIsFavorited(false);
+
       if (!bgOriginalUrl || wallpaperResolution === 'custom') {
         setIsAlreadyFavorited(false);
         return;
@@ -91,69 +168,86 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     });
   }, [wallpaperResolution, bgImage, bgOriginalUrl, isSearchFocused, isAlreadyFavorited]);
 
-  // 收藏当前壁纸
+  // 收藏/取消收藏当前壁纸
   const handleFavoriteWallpaper = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // 如果已经收藏，不允许重复收藏
-    if (isFavoriting || !bgOriginalUrl || wallpaperResolution === 'custom' || isAlreadyFavorited) {
+    // 如果正在操作中，或者没有URL，或者是自定义壁纸，直接返回
+    if (isFavoriting || !bgOriginalUrl || wallpaperResolution === 'custom') {
       return;
     }
 
     setIsFavoriting(true);
 
+    logger.debug('🖱️ 点击壁纸收藏按钮', {
+      isAlreadyFavorited,
+      bgOriginalUrl,
+      wallpaperResolution
+    });
+
     try {
-      // 使用原始 Unsplash URL 下载并保存壁纸
-      const result = await customWallpaperManager.downloadAndSaveFromUrl(
-        bgOriginalUrl, // 使用原始URL而不是Blob URL
-        `unsplash-${wallpaperResolution}-${Date.now()}.jpg`
-      );
+      if (isAlreadyFavorited) {
+        // 取消收藏逻辑
+        logger.debug('🔄 尝试取消收藏...', { bgOriginalUrl });
+        const id = await customWallpaperManager.getWallpaperIdByUrl(bgOriginalUrl);
 
-      if (result.success) {
-        setIsFavorited(true);
-        setIsAlreadyFavorited(true); // 标记为已收藏
-        logger.debug('✅ 壁纸收藏成功', { id: result.id });
-
-        // 3秒后隐藏"收藏成功"提示（但保持已收藏状态）
-        setTimeout(() => {
+        if (id) {
+          logger.debug('🆔 找到壁纸ID，正在删除', { id });
+          const success = await customWallpaperManager.deleteWallpaper(id);
+          if (success) {
+            setIsAlreadyFavorited(false);
+            setIsFavorited(false);
+            logger.debug('🗑️ 壁纸取消收藏成功', { id });
+          } else {
+            logger.warn('❌ 壁纸取消收藏失败');
+          }
+        } else {
+          logger.warn('❌ 无法找到对应壁纸ID，无法取消收藏', { bgOriginalUrl });
+          // 强制重置状态，避免UI卡死在已收藏状态
+          setIsAlreadyFavorited(false);
           setIsFavorited(false);
-        }, 3000);
-      } else {
-        logger.warn('❌ 壁纸收藏失败', result.error);
-        // 如果是重复收藏的错误，更新状态
-        if (result.error?.includes('已经在你的收藏中')) {
-          setIsAlreadyFavorited(true);
         }
-        alert(`收藏失败: ${result.error || '未知错误'}`);
+      } else {
+        // 收藏逻辑
+        // 使用原始 Unsplash URL 下载并保存壁纸
+        const result = await customWallpaperManager.downloadAndSaveFromUrl(
+          bgOriginalUrl, // 使用原始URL而不是Blob URL
+          `unsplash-${wallpaperResolution}-${Date.now()}.jpg`
+        );
+
+        if (result.success) {
+          setIsFavorited(true);
+          setIsAlreadyFavorited(true); // 标记为已收藏
+          logger.debug('✅ 壁纸收藏成功', { id: result.id });
+
+          // 3秒后隐藏"收藏成功"提示（但保持已收藏状态）
+          setTimeout(() => {
+            setIsFavorited(false);
+          }, 3000);
+        } else {
+          logger.warn('❌ 壁纸收藏失败', result.error);
+          // 如果是重复收藏的错误，更新状态
+          if (result.error?.includes('已经在你的收藏中')) {
+            setIsAlreadyFavorited(true);
+          }
+        }
       }
     } catch (error) {
-      logger.error('收藏壁纸时出错', error);
-      alert('收藏失败，请重试');
+      logger.error('操作壁纸收藏状态时出错', error);
     } finally {
       setIsFavoriting(false);
     }
   };
 
   // 壁纸加载 - 统一处理挂载和分辨率变化
+  // 注意：所有日期检测逻辑都在 optimizedWallpaperService 中统一处理
   useEffect(() => {
     const loadWallpaper = async () => {
       try {
         logger.debug('🖼️ 开始加载壁纸，分辨率:', wallpaperResolution);
-        setBgImageLoaded(false);
 
-        // 检查是否需要新的壁纸（跨天检查）
-        const today = new Date().toISOString().split('T')[0];
-        const lastWallpaperDateKey = `last-wallpaper-date-${wallpaperResolution}`;
-        const lastWallpaperDate = localStorage.getItem(lastWallpaperDateKey);
-
-        // 如果是新的一天，记录日期
-        const shouldRefreshForNewDay = lastWallpaperDate !== today;
-        if (shouldRefreshForNewDay) {
-          localStorage.setItem(lastWallpaperDateKey, today);
-          logger.debug('🌅 检测到新的一天，将在后续触发壁纸更新');
-        }
-
+        // 调用壁纸服务获取壁纸（日期检测和缓存逻辑在服务中统一处理）
         const result = await optimizedWallpaperService.getWallpaper(wallpaperResolution);
 
         if (result.url) {
@@ -161,9 +255,42 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
             isToday: result.isToday,
             needsUpdate: result.needsUpdate,
           });
-          setBgImage(result.url);
-          setBgOriginalUrl(result.originalUrl); // 保存原始 URL 用于收藏检测
-          setBgImageLoaded(true);
+
+          // 重置加载状态，实现淡入效果
+          setWallpaperLoaded(false);
+
+          // 预加载图片
+          const img = new Image();
+          img.onload = async () => {
+            setBgImage(result.url);
+            setBgOriginalUrl(result.originalUrl);
+
+            // 智能遮罩模式：分析壁纸颜色（在图片加载完成后进行）
+            if (darkOverlayMode === 'smart') {
+              try {
+                // 自定义壁纸传递 ID，Bing 壁纸不传（使用日期作为缓存键）
+                const wallpaperId = wallpaperResolution === 'custom' ? 'current-custom' : undefined;
+                const needsOverlay = await shouldApplyOverlay(result.url, wallpaperId);
+                setSmartOverlayNeeded(needsOverlay);
+                logger.debug('🎨 智能遮罩检测结果:', needsOverlay ? '需要遮罩' : '不需要遮罩');
+              } catch (error) {
+                logger.warn('壁纸颜色分析失败:', error);
+                setSmartOverlayNeeded(false);
+              }
+            }
+
+            // 延迟一帧设置加载完成，确保transition生效
+            requestAnimationFrame(() => {
+              setWallpaperLoaded(true);
+            });
+          };
+          img.onerror = () => {
+            // 图片加载失败时也设置URL，让浏览器显示默认状态
+            setBgImage(result.url);
+            setBgOriginalUrl(result.originalUrl);
+            setWallpaperLoaded(true);
+          };
+          img.src = result.url;
 
           // 如果缓存的不是今天的壁纸，记录警告
           if (!result.isToday && result.isFromCache) {
@@ -173,34 +300,58 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
           logger.warn('❌ 无法获取壁纸');
           setBgImage('');
           setBgOriginalUrl(undefined);
-          setBgImageLoaded(true);
+          setWallpaperLoaded(true); // 确保不会一直透明
         }
       } catch (error) {
         logger.warn('获取壁纸失败:', error);
         setBgImage('');
         setBgOriginalUrl(undefined);
-        setBgImageLoaded(true);
+        setWallpaperLoaded(true); // 确保不会一直透明
       }
     };
 
     loadWallpaper();
   }, [wallpaperResolution]); // 分辨率变化时重新加载
 
+  // 智能遮罩模式切换时重新检测颜色
+  useEffect(() => {
+    // 只有在智能模式且已有壁纸时才检测
+    if (darkOverlayMode === 'smart' && bgImage) {
+      const checkColor = async () => {
+        try {
+          const wallpaperId = wallpaperResolution === 'custom' ? 'current-custom' : undefined;
+          const needsOverlay = await shouldApplyOverlay(bgImage, wallpaperId);
+          setSmartOverlayNeeded(needsOverlay);
+          logger.debug('🎨 模式切换触发颜色检测:', needsOverlay ? '需要遮罩' : '不需要遮罩');
+        } catch (error) {
+          logger.warn('壁纸颜色分析失败:', error);
+          setSmartOverlayNeeded(false);
+        }
+      };
+      checkColor();
+    } else if (darkOverlayMode !== 'smart') {
+      // 非智能模式时重置状态
+      setSmartOverlayNeeded(false);
+    }
+  }, [darkOverlayMode, bgImage, wallpaperResolution]);
+
   // 根据设置决定是否自动排序卡片
-  const displayWebsites = autoSortEnabled
-    ? [...websites].sort((a, b) => {
-      // 首先按访问次数降序排序
-      const visitDiff = (b.visitCount || 0) - (a.visitCount || 0);
-      if (visitDiff !== 0) return visitDiff;
+  const displayWebsites = useMemo(() => {
+    return autoSortEnabled
+      ? [...websites].sort((a, b) => {
+        // 首先按访问次数降序排序
+        const visitDiff = (b.visitCount || 0) - (a.visitCount || 0);
+        if (visitDiff !== 0) return visitDiff;
 
-      // 如果访问次数相同，按最后访问时间降序排序
-      const dateA = new Date(a.lastVisit || '2000-01-01').getTime();
-      const dateB = new Date(b.lastVisit || '2000-01-01').getTime();
-      return dateB - dateA;
-    })
-    : websites;
+        // 如果访问次数相同，按最后访问时间降序排序
+        const dateA = new Date(a.lastVisit || '2000-01-01').getTime();
+        const dateB = new Date(b.lastVisit || '2000-01-01').getTime();
+        return dateB - dateA;
+      })
+      : websites;
+  }, [websites, autoSortEnabled]);
 
-  const handleSaveCard = (updatedCard: {
+  const handleSaveCard = useCallback((updatedCard: {
     id: string;
     name: string;
     url: string;
@@ -213,7 +364,11 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     setWebsites(
       websites.map((card) => (card.id === updatedCard.id ? { ...card, ...updatedCard } : card))
     );
-  };
+  }, [websites, setWebsites]);
+
+  const handleDelete = useCallback((id: string) => {
+    setWebsites(websites.filter((card) => card.id !== id));
+  }, [websites, setWebsites]);
 
   // 壁纸加载已在上方统一处理
 
@@ -304,15 +459,15 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     const gridClasses = getGridClasses();
 
     return {
-      container: `relative min-h-screen ${isMobile ? 'pt-[18vh]' : 'pt-[33vh]'}`,
+      container: `relative min-h-[100dvh] ${isMobile ? 'pt-[12vh]' : 'pt-[33vh]'}`,
       searchContainer: searchBarLayout.containerClass,
-      cardContainer: `${isMobile ? 'pt-4 pb-4' : 'pt-16 pb-8'} px-4 max-w-6xl mx-auto`,
+      cardContainer: `${isMobile ? 'pt-2 pb-4' : 'pt-16 pb-8'} px-2 max-w-6xl mx-auto`,
       gridLayout: gridClasses,
       userInfo: isMobile ? 'fixed top-2 right-2 z-40 scale-90' : 'fixed top-4 right-4 z-40',
       workspaceButton: isMobile ? 'fixed top-2 left-2 z-40 scale-90' : 'fixed top-4 left-4 z-40',
       settingsButton: isMobile
-        ? 'fixed bottom-2 right-2 z-[9999] p-2 bg-white/15 rounded-full backdrop-blur-sm shadow-lg'
-        : 'fixed bottom-4 right-4 z-[9999] p-2.5 bg-white/15 rounded-full backdrop-blur-sm shadow-lg hover:bg-white/25 transition-all duration-200',
+        ? 'fixed bottom-4 right-4 z-[9999] p-3'
+        : 'fixed bottom-4 right-4 z-[9999]',
     };
   };
 
@@ -323,6 +478,11 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
       {/* 邮箱验证横幅 */}
       <EmailVerificationBanner />
 
+      {/* 系统公告横幅 */}
+      <AnnouncementBanner />
+
+
+
       {/* 壁纸背景层 - 响应式优化 */}
       <div
         className="fixed top-0 left-0 w-full h-full -z-10"
@@ -331,41 +491,41 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
           backgroundSize: 'cover',
           backgroundPosition: isMobile ? 'center center' : 'center top',
           backgroundRepeat: 'no-repeat',
-          filter: bgImageLoaded ? 'none' : 'blur(2px)',
+          opacity: wallpaperLoaded ? 1 : 0,
           transform:
             !isSettingsOpen && !isSearchFocused && parallaxEnabled && !isMobile && mousePosition
               ? `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px) scale(1.05)`
               : 'translate(0px, 0px) scale(1)',
-          transition: 'filter 1.5s ease-out, transform 0.3s ease-out',
+          transition: 'opacity 0.5s ease-out, transform 0.3s ease-out',
         }}
       />
 
-      {/* 渐变遮罩层 - 响应式调整 */}
-      {bgImage && (
+
+
+      {/* 黑色遮罩层 - 暗角滤镜效果 */}
+      {bgImage && (darkOverlayMode === 'always' || (darkOverlayMode === 'smart' && smartOverlayNeeded)) && (
         <div
-          className="fixed top-0 left-0 w-full h-full -z-10"
+          className="fixed top-0 left-0 w-full h-full"
           style={{
-            background: isMobile
-              ? 'linear-gradient(to bottom, rgba(30, 41, 59, 0.6) 0%, rgba(30, 41, 59, 0.4) 50%, rgba(30, 41, 59, 0.2) 100%)'
-              : 'linear-gradient(to bottom, rgba(30, 41, 59, 0.7) 0%, rgba(30, 41, 59, 0.3) 50%, rgba(30, 41, 59, 0.1) 100%)',
-            opacity: bgImageLoaded ? 0 : 1,
-            transition: 'opacity 1.5s ease-out',
+            background: 'radial-gradient(ellipse 80% 80% at center, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.15) 40%, rgba(0, 0, 0, 0.4) 70%, rgba(0, 0, 0, 0.7) 100%)',
+            zIndex: -9,
             pointerEvents: 'none',
+            transition: 'opacity 0.5s ease-out',
           }}
         />
       )}
 
-      {/* 壁纸加载指示器 - 响应式位置 */}
-      {!bgImageLoaded && bgImage && (
-        <div
-          className={`fixed ${isMobile ? 'top-2 left-2' : 'top-4 left-4'} z-40 bg-black/30 backdrop-blur-sm rounded-lg px-4 py-2`}
-        >
-          <div className="text-white/90 text-sm font-medium flex items-center space-x-2">
-            <div className="animate-pulse rounded-full h-2 w-2 bg-white/70"></div>
-            <span className={isMobile ? 'text-xs' : 'text-sm'}>壁纸加载中</span>
-          </div>
-        </div>
+      {/* 雪花氛围效果 - 粒子数 = 档位 * 6 */}
+      {(atmosphereMode === 'snow' || (atmosphereMode === 'auto' && isWinterSeason())) && (
+        <SnowEffect particleCount={atmosphereParticleCount * 6} windEnabled={atmosphereWindEnabled} isSlowMotion={isSlowMotion} />
       )}
+
+      {/* 落叶氛围效果 - 粒子数 = 档位 * 4 */}
+      {(atmosphereMode === 'leaf' || (atmosphereMode === 'auto' && isAutumnSeason())) && (
+        <LeafEffect particleCount={atmosphereParticleCount * 4} windEnabled={atmosphereWindEnabled} isSlowMotion={isSlowMotion} />
+      )}
+
+
 
       <div className={classes.container}>
         {/* SEO 导航 - 视觉上隐藏但对搜索引擎可见 */}
@@ -420,26 +580,23 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
                   index={originalIndex}
                   moveCard={moveCard}
                   onSave={handleSaveCard}
-                  onDelete={(id) => {
-                    setWebsites(websites.filter((card) => card.id !== id));
-                  }}
+                  onDelete={handleDelete}
                   onCardSave={triggerSync}
+                  onAddCard={() => setShowAddCardModal(true)}
                 />
               );
             })}
           </motion.div>
         </div>
 
-        <AnimatePresence>
-          {showSettings && (
-            <LazySettings
-              onClose={() => setShowSettings(false)}
-              websites={websites}
-              setWebsites={setWebsites}
-              onSettingsClose={triggerSync}
-            />
-          )}
-        </AnimatePresence>
+        {showSettings && (
+          <LazySettings
+            onClose={() => setShowSettings(false)}
+            websites={websites}
+            setWebsites={setWebsites}
+            onSettingsClose={triggerSync}
+          />
+        )}
 
         {/* 工作空间触发按钮 - 响应式调整 */}
         <motion.div
@@ -470,40 +627,6 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
           </div>
         </motion.div>
 
-        {/* 用户头像按钮 - 右上角 */}
-        <motion.div
-          className={isMobile ? 'fixed top-2 right-2 z-40 scale-90' : 'fixed top-4 right-4 z-40'}
-          animate={{
-            opacity: isSearchFocused ? 0 : 1,
-            scale: isSearchFocused ? 0.8 : 1
-          }}
-          whileTap={{ scale: 0.9 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
-          <div className="relative group">
-            <button
-              onClick={() => setShowUserModal(true)}
-              className="flex items-center justify-center transition-all duration-200 cursor-pointer p-2"
-            >
-              {currentUser ? (
-                <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 rounded-full flex items-center justify-center shadow-lg border-2 border-white/30">
-                  <i className="fa-solid fa-cat text-white text-sm"></i>
-                </div>
-              ) : (
-                <i
-                  className={`fa-solid fa-user-circle text-white/70 group-hover:text-white group-hover:drop-shadow-lg transition-all duration-200 ${isMobile ? 'text-xl' : 'text-2xl'}`}
-                ></i>
-              )}
-            </button>
-
-            {/* 自定义悬停提示 */}
-            <div className="absolute right-0 top-full mt-2 px-3 py-1.5 bg-gray-900/90 text-white text-xs rounded-lg shadow-lg backdrop-blur-sm border border-white/10 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
-              {currentUser ? '个人中心' : '登录 / 注册'}
-              <div className="absolute bottom-full right-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-gray-900/90"></div>
-            </div>
-          </div>
-        </motion.div>
-
         {/* 收藏壁纸按钮 - 右上角，仅在搜索框聚焦且不是自定义壁纸时显示 */}
         {wallpaperResolution !== 'custom' && bgImage && (
           <motion.div
@@ -519,7 +642,8 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
             <div className="relative group">
               <button
                 onClick={handleFavoriteWallpaper}
-                disabled={isFavoriting || isAlreadyFavorited}
+                onMouseDown={(e) => e.preventDefault()} // 阻止焦点转移，保持搜索框聚焦状态
+                disabled={isFavoriting}
                 className="flex items-center justify-center transition-all duration-300 cursor-pointer hover:scale-110 disabled:cursor-default"
               >
                 {isFavoriting ? (
@@ -545,7 +669,7 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
               {/* hover提示文字 - 已收藏时 */}
               {!isFavoriting && isAlreadyFavorited && !isFavorited && (
                 <div className="absolute right-0 top-full mt-2 px-4 py-2 bg-red-500/90 text-white text-sm rounded-lg shadow-lg backdrop-blur-sm border border-red-400/30 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50">
-                  ❤️ 已收藏
+                  ❤️ 已收藏 · 点击取消
                   <div className="absolute bottom-full right-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-red-500/90"></div>
                 </div>
               )}
@@ -574,12 +698,15 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
         >
           <button
             onClick={() => setShowSettings(true)}
-            className="text-white/90 hover:text-white transition-colors drop-shadow-md"
+            className={`${isMobile ? 'p-2' : 'p-2'} text-white/70 hover:text-white transition-colors`}
             aria-label="设置"
           >
-            <i className={`fa-solid fa-sliders ${isMobile ? 'text-lg' : 'text-xl'}`}></i>
+            <i className={`fa-solid fa-sliders ${isMobile ? 'text-base' : 'text-lg'}`}></i>
           </button>
         </motion.div>
+
+        {/* 公告中心入口 - 左下角 */}
+        <AnnouncementCenter isVisible={!isSearchFocused} />
 
         {/* 诗句显示 - 页面下方 */}
         <PoemDisplay />
@@ -590,8 +717,30 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
         {/* 工作空间模态框 */}
         <LazyWorkspaceModal isOpen={isWorkspaceOpen} onClose={() => setIsWorkspaceOpen(false)} />
 
-        {/* 用户模态框 */}
-        <UserModal isOpen={showUserModal} onClose={() => setShowUserModal(false)} />
+        {/* 新增卡片模态框 */}
+        {showAddCardModal && (
+          <CardEditModal
+            id=""
+            name=""
+            url=""
+            favicon=""
+            tags={[]}
+            note=""
+            onClose={() => setShowAddCardModal(false)}
+            onSave={(data) => {
+              // 创建新卡片
+              const newCard = {
+                ...data,
+                id: `card-${Date.now()}`,
+                visitCount: 0,
+                lastVisit: new Date().toISOString().split('T')[0],
+              };
+              setWebsites([...websites, newCard]);
+              setShowAddCardModal(false);
+              triggerSync();
+            }}
+          />
+        )}
       </div>
     </>
   );

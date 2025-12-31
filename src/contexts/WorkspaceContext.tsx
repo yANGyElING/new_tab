@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import { workspaceManager } from '@/lib/notionClient';
+import { getNotionOAuthToken, hasNotionAuth } from '@/lib/notionOAuthHelper';
+import { supabase } from '@/lib/supabase';
 
 interface WorkspaceItem {
   id: string;
@@ -16,7 +18,8 @@ interface WorkspaceItem {
 }
 
 interface WorkspaceConfig {
-  apiKey: string;
+  mode: 'api_key' | 'oauth';
+  apiKey?: string;
   databaseId: string;
   corsProxy?: string;
   lastConfigured: string;
@@ -73,24 +76,27 @@ interface WorkspaceContextType {
   setIsWorkspaceOpen: (open: boolean) => void;
   syncWorkspaceData: () => Promise<void>;
   configureNotion: (apiKey: string, databaseId: string, corsProxy?: string) => void;
+  configureWithOAuth: (databaseId: string, corsProxy?: string) => Promise<void>;
   testConnection: () => Promise<boolean>;
-  clearConfiguration: () => void;
+  clearConfiguration: () => Promise<void>;
   refreshItems: () => Promise<void>;
   getConfiguration: () => WorkspaceConfig | null;
-  
+  hasNotionOAuth: () => Promise<boolean>;
+  searchDatabases: () => Promise<Array<{ id: string; title: string; url: string }>>;
+
   // 视图操作
   setViewType: (type: ViewType) => void;
-  
+
   // 筛选操作
   setSelectedCategory: (category: string) => void;
   setSearchQuery: (query: string) => void;
   clearFilters: () => void;
-  
+
   // 键盘导航操作
   setFocusedItemIndex: (index: number) => void;
   moveFocusUp: () => void;
   moveFocusDown: () => void;
-  
+
   // 工具方法
   openItem: (item: WorkspaceItem) => void;
   copyItemUrl: (item: WorkspaceItem) => Promise<void>;
@@ -117,19 +123,19 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       return 'list';
     }
   });
-  
+
   // 筛选状态
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
-  
+
   // 键盘导航状态
   const [focusedItemIndex, setFocusedItemIndex] = useState<number>(-1);
 
   // 生成分类信息
   const categories: CategoryInfo[] = useMemo(() => {
     const categoryMap = new Map<string, number>();
-    
+
     workspaceItems.forEach(item => {
       const category = item.category || 'Default';
       categoryMap.set(category, (categoryMap.get(category) || 0) + 1);
@@ -218,7 +224,10 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   // 初始化时检查配置状态
   useEffect(() => {
     const config = workspaceManager.getConfig();
-    setIsConfigured(!!config?.apiKey && !!config?.databaseId);
+    // 支持两种模式：API Key 模式需要 apiKey + databaseId，OAuth 模式只需要 mode=oauth + databaseId
+    const isApiKeyConfigured = !!config?.apiKey && !!config?.databaseId;
+    const isOAuthConfigured = config?.mode === 'oauth' && !!config?.databaseId;
+    setIsConfigured(isApiKeyConfigured || isOAuthConfigured);
 
     // 加载Notion缓存的项目
     const cachedItems = workspaceManager.getCachedWorkspaceItems();
@@ -243,11 +252,65 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // 配置 Notion 连接 (OAuth 模式)
+  const configureWithOAuth = async (databaseId: string, corsProxy?: string) => {
+    try {
+      const hasOAuth = await hasNotionAuth();
+      if (!hasOAuth) {
+        throw new Error('请先使用 Notion 登录');
+      }
+      workspaceManager.configureWithOAuth(getNotionOAuthToken, databaseId, corsProxy);
+      setIsConfigured(true);
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '配置失败');
+      setIsConfigured(false);
+      throw error;
+    }
+  };
+
+  // 检查是否有 Notion OAuth 认证
+  const checkHasNotionOAuth = async (): Promise<boolean> => {
+    return await hasNotionAuth();
+  };
+
+  // 搜索数据库
+  const searchDatabases = async () => {
+    try {
+      // 确保 OAuth 模式下 NotionClient 已初始化
+      // 当用户通过 OAuth 登录后首次调用时，workspaceManager.notionClient 可能为空
+      const hasOAuth = await hasNotionAuth();
+      if (hasOAuth) {
+        // 临时初始化客户端用于搜索（使用空的 databaseId，因为我们只是要搜索数据库列表）
+        workspaceManager.configureWithOAuth(getNotionOAuthToken, '', undefined);
+      }
+      return await workspaceManager.searchDatabases();
+    } catch (error) {
+      console.error('搜索数据库失败:', error);
+      throw error;
+    }
+  };
+
   // 同步工作空间数据
   const syncWorkspaceData = async () => {
-    if (!isConfigured) {
-      setError('请先配置Notion API密钥和数据库ID');
+    // 检查配置状态，同时支持 API Key 和 OAuth 两种模式
+    const config = workspaceManager.getConfig();
+    const hasValidConfig = config && config.databaseId && (config.apiKey || config.mode === 'oauth');
+
+    if (!hasValidConfig) {
+      setError('请先配置Notion连接或选择数据库');
       return;
+    }
+
+    // 如果是 OAuth 模式，确保客户端已初始化
+    if (config.mode === 'oauth') {
+      const hasOAuth = await hasNotionAuth();
+      if (!hasOAuth) {
+        setError('Notion OAuth 已过期，请重新授权');
+        return;
+      }
+      // 确保 OAuth 客户端已配置
+      workspaceManager.configureWithOAuth(getNotionOAuthToken, config.databaseId, config.corsProxy);
     }
 
     setIsLoading(true);
@@ -276,12 +339,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   // 测试连接
   const testConnection = async (): Promise<boolean> => {
-    if (!isConfigured) return false;
+    // 直接检查 workspaceManager 的配置状态，而不是依赖 React 状态
+    // 因为 React 状态更新是异步的，configureNotion 后立即调用 testConnection
+    // 此时 isConfigured 状态可能还未更新
+    const config = workspaceManager.getConfig();
+    if (!config) return false;
 
     try {
+      // 如果是 OAuth 模式，确保客户端已初始化
+      if (config.mode === 'oauth') {
+        const hasOAuth = await hasNotionAuth();
+        if (!hasOAuth) {
+          setError('Notion OAuth 已过期，请重新授权');
+          return false;
+        }
+        // 确保 OAuth 客户端已配置
+        workspaceManager.configureWithOAuth(getNotionOAuthToken, config.databaseId || '', config.corsProxy);
+      }
+
       const isConnected = await workspaceManager.testConnection();
       if (!isConnected) {
-        setError('无法连接到Notion API，请检查API密钥是否正确');
+        setError('无法连接到Notion API，请检查配置是否正确');
       }
       return isConnected;
     } catch (error) {
@@ -290,8 +368,28 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // 清除配置
-  const clearConfiguration = () => {
+  // 清除配置（包括删除数据库中的 token）
+  const clearConfiguration = async () => {
+    // 删除数据库中的 Notion token
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) {
+        const { error } = await supabase
+          .from('user_notion_tokens')
+          .delete()
+          .eq('user_id', session.user.id);
+
+        if (error) {
+          console.error('删除 Notion token 失败:', error);
+        } else {
+          console.log('✅ 已删除数据库中的 Notion token');
+        }
+      }
+    } catch (error) {
+      console.error('清除 Notion token 时出错:', error);
+    }
+
+    // 清除本地配置
     workspaceManager.clearAll();
     setIsConfigured(false);
     setWorkspaceItems([]);
@@ -357,16 +455,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     // 视图状态
     viewType,
-    
+
     // 筛选状态
     selectedCategory,
     searchQuery,
     searchSuggestions,
-    
+
     // 派生状态
     filteredItems,
     categories,
-    
+
     // 键盘导航状态
     focusedItemIndex,
 
@@ -374,24 +472,27 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setIsWorkspaceOpen,
     syncWorkspaceData,
     configureNotion,
+    configureWithOAuth,
     testConnection,
     clearConfiguration,
     refreshItems,
     getConfiguration: () => workspaceManager.getConfig(),
-    
+    hasNotionOAuth: checkHasNotionOAuth,
+    searchDatabases,
+
     // 视图操作
     setViewType,
-    
+
     // 筛选操作
     setSelectedCategory,
     setSearchQuery,
     clearFilters,
-    
+
     // 键盘导航操作
     setFocusedItemIndex,
     moveFocusUp,
     moveFocusDown,
-    
+
     // 工具方法
     openItem,
     copyItemUrl,

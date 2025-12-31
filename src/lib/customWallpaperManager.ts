@@ -2,6 +2,7 @@
 import { indexedDBCache } from './indexedDBCache';
 import { memoryManager } from './memoryManager';
 import { logger } from './logger';
+import { clearCustomWallpaperColorCache, clearAllColorCache } from '@/utils/imageColorAnalyzer';
 
 // 壁纸元数据接口
 export interface WallpaperMetadata {
@@ -348,6 +349,9 @@ class CustomWallpaperManager {
       memoryManager.cleanupCategory('custom-wallpaper');
       memoryManager.cleanupCategory('custom-wallpaper-thumb');
 
+      // 清除对应的颜色缓存
+      clearCustomWallpaperColorCache(id);
+
       logger.wallpaper.info('删除自定义壁纸成功', { id });
       return true;
     } catch (error) {
@@ -372,6 +376,9 @@ class CustomWallpaperManager {
       // 清理内存中的 Blob URL
       memoryManager.cleanupCategory('custom-wallpaper');
       memoryManager.cleanupCategory('custom-wallpaper-thumb');
+
+      // 清除所有颜色缓存
+      clearAllColorCache();
 
       logger.wallpaper.info('删除所有自定义壁纸成功');
       return true;
@@ -461,18 +468,28 @@ class CustomWallpaperManager {
   // 提取URL的核心标识（用于判重）
   private extractUrlCore(url: string): string {
     try {
-      // 移除 URL 参数
-      const urlWithoutParams = url.split('?')[0];
-
-      // 多种匹配模式，适配不同的 URL 格式
-      // 1. Unsplash 格式: /photo-xxx 或 photo-xxx
-      let match = urlWithoutParams.match(/photo-[a-zA-Z0-9_-]+/);
-      if (match) {
-        logger.wallpaper.debug('提取 Unsplash photo ID:', match[0]);
-        return match[0];
+      // Unsplash Source API 格式: https://source.unsplash.com/random/1920x1080?nature,landscape&sig=2024-01-01
+      // 使用 sig 参数作为唯一标识（日期）
+      if (url.includes('source.unsplash.com')) {
+        const sigMatch = url.match(/sig=([^&]+)/);
+        if (sigMatch) {
+          const sig = sigMatch[1];
+          logger.wallpaper.debug('提取 Unsplash Source sig:', sig);
+          return `unsplash-${sig}`;
+        }
       }
 
-      // 2. 尝试提取路径的最后一段（通常是图片ID）
+      // 移除 URL 参数（对于其他 Unsplash 格式）
+      const urlWithoutParams = url.split('?')[0];
+
+      // Unsplash 图片 URL 格式: /photo-xxx 或 photo-xxx
+      const unsplashMatch = urlWithoutParams.match(/photo-[a-zA-Z0-9_-]+/);
+      if (unsplashMatch) {
+        logger.wallpaper.debug('提取 Unsplash photo ID:', unsplashMatch[0]);
+        return unsplashMatch[0];
+      }
+
+      // 尝试提取路径的最后一段（通常是图片ID）
       const pathSegments = urlWithoutParams.split('/').filter(Boolean);
       if (pathSegments.length > 0) {
         const lastSegment = pathSegments[pathSegments.length - 1];
@@ -488,8 +505,15 @@ class CustomWallpaperManager {
     }
   }
 
+
   // 检查URL是否已经被收藏
   async isUrlAlreadyFavorited(url: string): Promise<boolean> {
+    const id = await this.getWallpaperIdByUrl(url);
+    return !!id;
+  }
+
+  // 根据URL获取壁纸ID
+  async getWallpaperIdByUrl(url: string): Promise<string | null> {
     try {
       const list = await this.getWallpaperList();
       const urlCore = this.extractUrlCore(url);
@@ -501,35 +525,46 @@ class CustomWallpaperManager {
       });
 
       // 检查列表中是否有相同的URL（比较核心部分）
-      const found = list.some((item) => {
+      let foundItem = list.find((item) => {
         if (!item.sourceUrl) return false;
         const itemUrlCore = this.extractUrlCore(item.sourceUrl);
         const isMatch = itemUrlCore === urlCore;
 
         if (isMatch) {
-          logger.wallpaper.info('✅ 找到匹配的收藏壁纸', {
+          logger.wallpaper.info('✅ 找到匹配的收藏壁纸 (Core Match)', {
             savedUrl: item.sourceUrl,
             savedCore: itemUrlCore,
             checkingCore: urlCore,
+            id: item.id
           });
         }
 
         return isMatch;
       });
 
-      if (!found) {
+      // 如果核心匹配失败，尝试完全匹配
+      if (!foundItem) {
+        foundItem = list.find(item => item.sourceUrl === url);
+        if (foundItem) {
+          logger.wallpaper.info('✅ 找到匹配的收藏壁纸 (Exact Match)', { id: foundItem.id });
+        }
+      }
+
+      if (!foundItem) {
         logger.wallpaper.debug('❌ 未找到匹配的收藏壁纸', {
+          checkingUrl: url,
           checkingCore: urlCore,
           savedCores: list.map((item) =>
             item.sourceUrl ? this.extractUrlCore(item.sourceUrl) : 'no-url'
           ),
         });
+        return null;
       }
 
-      return found;
+      return foundItem.id;
     } catch (error) {
-      logger.wallpaper.error('检查URL是否已收藏失败', error);
-      return false;
+      logger.wallpaper.error('通过URL获取壁纸ID失败', error);
+      return null;
     }
   }
 

@@ -1,10 +1,20 @@
 <div align="center">
 
-# Jiang's Tab
+# Tomato Tabs
 ### Your Personal Web Gateway
 
+
+
+https://github.com/user-attachments/assets/66627637-b57b-4973-8f68-977905b84fd1
+
+
+
 <p align="center">
-  <img src="image.png" alt="Jiang's Tab Screenshot" width="800px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+  <img src="image-1.png" alt="Tomato Tabs Screenshot" width="800px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+</p>
+ 
+<p align="center">
+  <img src="image.png" alt="Tomato Tabs Screenshot" width="800px" style="border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
 </p>
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge&color=2563EB)](https://opensource.org/licenses/Apache-2.0)
@@ -13,9 +23,9 @@
 [![Vite](https://img.shields.io/badge/Vite-6.0-646CFF?style=for-the-badge&logo=vite&logoColor=white&color=646CFF)](https://vitejs.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-Enabled-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white&color=3ECF8E)](https://supabase.com/)
 
-[🌐 Live Demo](https://jiangjiang.cc) · [🐛 Report Bug](https://github.com/jiangjianghong/jiang_ai_web/issues) · [✨ Request Feature](https://github.com/jiangjianghong/jiang_ai_web/issues)
+[🌐 Live Demo](https://jiangjiang.cc) · [🐛 Report Bug](https://github.com/jiangjianghong/tomato-tab/issues) · [✨ Request Feature](https://github.com/jiangjianghong/tomato-tab/issues)
 
-**[ English | [简体中文](README.zh-CN.md) ]**
+**[ [简体中文](README.zh-CN.md) ]**
 
 </div>
 
@@ -36,9 +46,9 @@
 
 ## 📖 Introduction
 
-**Jiang's Tab** is not just another browser start page. It is a **modern, highly customizable, and visually stunning** personal dashboard designed to make your daily web navigation a delight.
+**Tomato Tabs** is not just another browser start page. It is a **modern, highly customizable, and visually stunning** personal dashboard designed to make your daily web navigation a delight.
 
-Built with performance and aesthetics in mind, it combines robust bookmark management with a beautiful interface that adapts to your style. Whether you need a productivity hub with Notion integration or a serene space with daily changing wallpapers and poetry, Jiang's Tab adapts to *you*.
+Built with performance and aesthetics in mind, it combines robust bookmark management with a beautiful interface that adapts to your style. Whether you need a productivity hub with Notion integration or a serene space with daily changing wallpapers and poetry, Tomato Tabs adapts to *you*.
 
 ## ✨ Key Features
 
@@ -99,8 +109,8 @@ Ready to build your own gateway? Follow these simple steps.
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/jiangjianghong/jiang_ai_web.git
-   cd jiang_ai_web
+   git clone https://github.com/jiangjianghong/tomato-tab.git
+   cd tomato-tab
    ```
 
 2. **Install dependencies**
@@ -168,13 +178,49 @@ This project relies on Supabase for Auth & Database.
 <details>
 <summary><b>1️⃣ SQL Schema Setup (One-Click)</b></summary>
 
-We provide a **unified deployment script** that sets up all tables (`profiles`, `settings`, `websites`, `stats`), security policies, and storage buckets automatically.
+We provide a **unified deployment script** that sets up all tables (`profiles`, `settings`, `websites`, `stats`, `announcements`, `admin`), security policies, and storage buckets automatically.
 
 1. Copy the content of **[supabase_deploy.sql](supabase_deploy.sql)**.
 2. Paste it into your **Supabase SQL Editor**.
 3. Click **Run**.
 
 That's it! Your database is fully configured.
+
+</details>
+
+<details>
+<summary><b>2️⃣ Admin Setup (Optional)</b></summary>
+
+To enable the admin dashboard:
+
+**1. Configure Environment Variable**
+
+Add admin email to your `.env` file:
+```bash
+VITE_ADMIN_EMAIL=your-admin@example.com
+```
+
+**2. Set Admin Role**
+
+In Supabase SQL Editor, run:
+```sql
+UPDATE user_profiles SET role = 'super_admin' WHERE email = 'your-admin@example.com';
+```
+
+**3. Access Admin Dashboard**
+
+After logging in with your admin account, visit `/admin`.
+
+**Admin Dashboard Features:**
+- 📊 **Dashboard** - Data visualization (line/bar charts)
+- 👥 **User Management** - User list, details, ban/unban
+- 📈 **Analytics** - Activity distribution, role distribution, popular searches
+- ⚡ **Realtime** - Online users, Realtime subscription
+- 📢 **Announcements** - Create, edit, delete announcements
+- 📋 **Logs** - Admin action audit logs
+- ⚙️ **System** - API health checks, response times
+
+> ⚠️ **Privacy**: Admins can only view aggregate statistics, not users' personal data like website lists.
 
 </details>
 
@@ -243,7 +289,7 @@ For a deep dive into the backend setup, check out the [Database Setup Guide](#-d
 - [ ] **Future**: AI-powered Bookmark Categorization
 - [ ] **Future**: Public Shareable Dashboards
 
-See the [open issues](https://github.com/jiangjianghong/jiang_ai_web/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/jiangjianghong/tomato-tab/issues) for a full list of proposed features (and known issues).
 
 ---
 
@@ -263,18 +309,18 @@ Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our co
 
 ## 📈 Star History
 
-<a href="https://star-history.com/#jiangjianghong/jiang_ai_web&Date">
+<a href="https://star-history.com/#jiangjianghong/tomato-tab&Date">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/jiang_ai_web&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/jiang_ai_web&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jiangjianghong/jiang_ai_web&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/tomato-tab&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=jiangjianghong/tomato-tab&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=jiangjianghong/tomato-tab&type=Date" />
  </picture>
 </a>
 
 ## 👥 Contributors
 
-<a href="https://github.com/jiangjianghong/jiang_ai_web/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=jiangjianghong/jiang_ai_web" />
+<a href="https://github.com/jiangjianghong/tomato-tab/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=jiangjianghong/tomato-tab" />
 </a>
 
 ---

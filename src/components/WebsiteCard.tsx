@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
-import { useState, useRef, useEffect, memo } from 'react';
+import { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import Tilt from 'react-parallax-tilt';
 import CardEditModal from './CardEditModal';
+import { ContextMenu, ContextMenuItem } from './ContextMenu';
 import { useTransparency } from '@/contexts/TransparencyContext';
 import { useLazyFavicon } from '@/hooks/useLazyFavicon';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -32,6 +33,7 @@ interface WebsiteCardProps {
   onSave: (data: WebsiteCardData) => void;
   onDelete?: (id: string) => void;
   onCardSave?: () => void; // 可选的保存回调，用于触发同步
+  onAddCard?: () => void; // 新增卡片回调
 }
 
 export const WebsiteCard = memo(function WebsiteCardComponent({
@@ -47,10 +49,12 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
   onSave,
   onDelete,
   onCardSave,
+  onAddCard,
 }: WebsiteCardProps) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [, setClickAnimation] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const { cardOpacity, cardColor, autoSortEnabled, searchInNewTab } = useTransparency();
@@ -145,20 +149,20 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
   }, []);
 
   // 处理卡片悬停效果（简化版）
-  const handleMouseEnter = () => {
+  const handleMouseEnter = useCallback(() => {
     if (!isMobile && !isDragging) {
       setIsHovered(true);
     }
-  };
+  }, [isMobile, isDragging]);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeave = useCallback(() => {
     if (!isMobile) {
       setIsHovered(false);
     }
-  };
+  }, [isMobile]);
 
   // 处理卡片点击动画
-  const handleCardClick = () => {
+  const handleCardClick = useCallback(() => {
     if (isMobile) {
       setClickAnimation(true);
       setTimeout(() => setClickAnimation(false), 200);
@@ -187,7 +191,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
       visitCount: visitCount + 1,
       lastVisit: new Date().toISOString().split('T')[0],
     });
-  };
+  }, [isMobile, searchInNewTab, url, id, name, favicon, tags, note, visitCount, onSave]);
 
   // 移动端长按菜单
   const handleLongPress = () => {
@@ -209,6 +213,31 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
     }
   };
 
+  // 右键菜单处理
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  // 右键菜单项
+  const contextMenuItems: ContextMenuItem[] = [
+    {
+      icon: 'fa-solid fa-pen-to-square',
+      label: '编辑卡片',
+      onClick: () => {
+        setShowEditModal(true);
+      },
+    },
+    ...(onAddCard ? [{
+      icon: 'fa-solid fa-plus',
+      label: '新增卡片',
+      onClick: () => {
+        onAddCard();
+      },
+    }] : []),
+  ];
+
   return (
     <>
       {/* 使用Tilt组件实现3D效果 */}
@@ -227,6 +256,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
       >
         {/* 简化的卡片容器 - 保留圆角 */}
         <motion.div
+          data-website-card="true"
           className={`${getCardClasses()} relative rounded-lg`}
           style={{
             backgroundColor: `rgba(${cardColor}, ${cardOpacity})`,
@@ -253,6 +283,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
           onTouchMove={clearLongPress}
           onTouchCancel={clearLongPress}
           onClick={handleCardClick}
+          onContextMenu={handleContextMenu}
           whileTap={{
             scale: 0.95,
             filter: 'brightness(0.85)',
@@ -271,25 +302,26 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
           viewport={{ once: true }}
           ref={cardRef}
         >
-          {/* 设置按钮 */}
-          <div className={`absolute ${isMobile ? 'top-1 right-1' : 'bottom-0.5 right-0.5'} z-10`}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowEditModal(true);
-              }}
-              className={`p-1 text-white/50 hover:text-white select-none transition-all duration-500 ease-out ${isMobile ? 'text-xs bg-black/20 rounded-full' : ''
-                } ${isHovered && !isMobile ? 'opacity-100' : isMobile ? 'opacity-70' : 'opacity-0'}`}
-            >
-              <i className="fa-solid fa-gear text-xs select-none"></i>
-            </button>
-          </div>
+          {/* 设置按钮 - 移动端隐藏，通过长按进入编辑 */}
+          {!isMobile && (
+            <div className={`absolute bottom-0.5 right-0.5 z-10`}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowEditModal(true);
+                }}
+                className={`p-1 text-white/50 hover:text-white select-none transition-all duration-500 ease-out ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+              >
+                <i className="fa-solid fa-gear text-xs select-none"></i>
+              </button>
+            </div>
+          )}
 
-          <div className={`h-full flex flex-col ${isMobile ? 'pt-2' : 'pt-3'} select-none`}>
+          <div className={`h-full flex flex-col ${isMobile ? 'pt-1.5 pb-1' : 'pt-3'} select-none`}>
             {/* 网站图标和名称区域 */}
-            <div className={`flex flex-col items-center ${isMobile ? 'px-1' : 'px-2'} select-none`}>
+            <div className={`flex flex-col items-center ${isMobile ? 'px-0.5' : 'px-2'} select-none`}>
               <div
-                className={`${isMobile ? 'w-8 h-8 mb-1' : 'w-11 h-11 mb-1'} rounded-md overflow-hidden select-none relative`}
+                className={`${isMobile ? 'w-7 h-7' : 'w-11 h-11 mb-1'} rounded-md overflow-hidden select-none relative`}
               >
                 <img
                   src={faviconUrl}
@@ -313,7 +345,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
                 )}
               </div>
               <h3
-                className={`${isMobile ? 'text-xs' : 'text-xs'} font-medium text-white text-center line-clamp-2 px-2 mt-1 select-none`}
+                className={`${isMobile ? 'text-[10px] line-clamp-1 mt-0.5 px-0.5' : 'text-xs line-clamp-2 px-2 mt-1'} font-medium text-white text-center select-none`}
               >
                 {name}
               </h3>
@@ -328,26 +360,28 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
               </div>
             )}
 
-            {/* 标签区域 */}
-            <div className={`mt-0 ${isMobile ? 'px-1 pb-1' : 'px-3 pb-2'} select-none`}>
-              <div className="flex flex-wrap gap-1 justify-center select-none">
-                {tags.slice(0, isMobile ? 2 : 6).map((tag) => (
-                  <span
-                    key={tag}
-                    className={`px-1.5 py-0.5 bg-white/20 rounded-full ${isMobile ? 'text-[10px]' : 'text-[0.65rem]'} text-white ${isMobile ? 'max-w-[50px]' : 'max-w-[60px]'} truncate select-none`}
-                  >
-                    {tag}
-                  </span>
-                ))}
+            {/* 标签区域 - 移动端隐藏 */}
+            {!isMobile && (
+              <div className="mt-0 px-3 pb-2 select-none">
+                <div className="flex flex-wrap gap-1 justify-center select-none">
+                  {tags.slice(0, 6).map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-1.5 py-0.5 bg-white/20 rounded-full text-[0.65rem] text-white max-w-[60px] truncate select-none"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* 访问次数显示 - 恢复直接显示 */}
-            {visitCount > 0 && (
-              <div className={`px-2 pb-2 select-none`}>
+            {/* 访问次数显示 - 移动端隐藏 */}
+            {visitCount > 0 && !isMobile && (
+              <div className="px-2 pb-2 select-none">
                 <div className="text-center">
                   <span
-                    className={`px-2 py-1 bg-blue-500/20 text-blue-200 rounded-full ${isMobile ? 'text-[10px]' : 'text-[0.65rem]'} border border-blue-300/30 select-none`}
+                    className="px-2 py-1 bg-blue-500/20 text-blue-200 rounded-full text-[0.65rem] border border-blue-300/30 select-none"
                   >
                     <i className="fa-solid fa-eye mr-1 select-none"></i>
                     <span className="select-none">{visitCount}次访问</span>
@@ -425,6 +459,16 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
         />
       )
       }
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </>
   );
 });

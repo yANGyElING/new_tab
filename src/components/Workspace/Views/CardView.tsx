@@ -1,6 +1,7 @@
 import { motion, LayoutGroup } from 'framer-motion';
 import { useWorkspace } from '@/contexts/WorkspaceContext';
 import { useRef, useEffect, useState } from 'react';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import WorkspaceCard from './WorkspaceCard';
 import LoadingSpinner from '../LoadingSpinner';
 
@@ -9,15 +10,16 @@ interface CardViewProps {
 }
 
 export default function CardView({ className = '' }: CardViewProps) {
-  const { 
-    filteredItems, 
-    isLoading, 
+  const {
+    filteredItems,
+    isLoading,
     error,
     focusedItemIndex,
     searchQuery,
-    setSearchQuery 
+    setSearchQuery
   } = useWorkspace();
 
+  const { isMobile } = useResponsiveLayout();
   const [focusPosition, setFocusPosition] = useState({ x: 0, y: 0, width: 0, height: 0 });
   const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -30,7 +32,7 @@ export default function CardView({ className = '' }: CardViewProps) {
         if (gridContainer) {
           const rect = element.getBoundingClientRect();
           const containerRect = gridContainer.getBoundingClientRect();
-          
+
           setFocusPosition({
             x: rect.left - containerRect.left,
             y: rect.top - containerRect.top,
@@ -54,11 +56,11 @@ export default function CardView({ className = '' }: CardViewProps) {
     return (
       <div className={`card-view ${className}`}>
         <div className="flex flex-col items-center justify-center py-16">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <i className="fa-solid fa-exclamation-triangle text-red-500 text-xl"></i>
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-4">
+            <i className="fa-solid fa-exclamation-triangle text-red-500 dark:text-red-400 text-xl"></i>
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">加载失败</h3>
-          <p className="text-gray-500 text-sm text-center max-w-md">{error}</p>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">加载失败</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-sm text-center max-w-md">{error}</p>
         </div>
       </div>
     );
@@ -68,18 +70,18 @@ export default function CardView({ className = '' }: CardViewProps) {
     return (
       <div className={`card-view ${className}`}>
         <div className="flex flex-col items-center justify-center py-16">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
             {searchQuery ? (
-              <i className="fa-solid fa-search text-gray-400 text-xl"></i>
+              <i className="fa-solid fa-search text-gray-400 dark:text-gray-500 text-xl"></i>
             ) : (
-              <i className="fa-solid fa-folder-open text-gray-400 text-xl"></i>
+              <i className="fa-solid fa-folder-open text-gray-400 dark:text-gray-500 text-xl"></i>
             )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             {searchQuery ? '没有找到匹配的项目' : '工作空间为空'}
           </h3>
-          <p className="text-gray-500 text-sm text-center max-w-md">
-            {searchQuery 
+          <p className="text-gray-500 dark:text-gray-400 text-sm text-center max-w-md">
+            {searchQuery
               ? `没有找到包含 "${searchQuery}" 的项目，尝试使用其他关键词搜索`
               : '还没有任何工作空间项目，请先从 Notion 同步数据'
             }
@@ -89,7 +91,7 @@ export default function CardView({ className = '' }: CardViewProps) {
               onClick={() => {
                 setSearchQuery('');
               }}
-              className="mt-4 px-4 py-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="mt-4 px-4 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
             >
               清除搜索条件
             </button>
@@ -99,17 +101,20 @@ export default function CardView({ className = '' }: CardViewProps) {
     );
   }
 
-  // 计算网格布局
+  // 计算网格布局 - 移动端使用2列更紧凑
   const getGridClasses = () => {
+    if (isMobile) {
+      return 'grid grid-cols-2 gap-2';
+    }
     return 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4';
   };
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }} className="select-none">
       {/* 滚动容器 - 使用内联样式确保正确的滚动 */}
-      <div 
+      <div
         className="scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400"
-        style={{ 
+        style={{
           flex: '1 1 0',
           minHeight: '0',
           overflowY: 'auto',
@@ -118,12 +123,12 @@ export default function CardView({ className = '' }: CardViewProps) {
           WebkitOverflowScrolling: 'touch'
         }}
       >
-        <div style={{ padding: '16px', minHeight: '100%' }}>
+        <div style={{ padding: isMobile ? '8px' : '16px', minHeight: '100%' }}>
           {/* 卡片视图头部（可选） */}
           {filteredItems.length > 0 && searchQuery && (
             <div className="mb-6">
-              <div className="text-sm text-gray-600">
-                搜索 "<span className="font-medium text-gray-900">{searchQuery}</span>" 的结果
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                搜索 "<span className="font-medium text-gray-900 dark:text-gray-100">{searchQuery}</span>" 的结果
               </div>
             </div>
           )}
@@ -133,7 +138,7 @@ export default function CardView({ className = '' }: CardViewProps) {
             {/* 滑动的焦点框 */}
             {focusedItemIndex >= 0 && (
               <motion.div
-                className="absolute border-2 border-blue-500 rounded-2xl pointer-events-none shadow-lg shadow-blue-500/20 bg-blue-50/10"
+                className="absolute border-2 border-blue-500 rounded-2xl pointer-events-none shadow-lg shadow-blue-500/20 bg-blue-50/10 dark:bg-blue-900/10"
                 animate={{
                   x: focusPosition.x,
                   y: focusPosition.y,
@@ -147,12 +152,12 @@ export default function CardView({ className = '' }: CardViewProps) {
                   damping: 25,
                   mass: 1
                 }}
-                style={{ 
+                style={{
                   zIndex: 10
                 }}
               />
             )}
-            
+
             {/* 卡片网格 */}
             <LayoutGroup>
               <div
@@ -179,8 +184,8 @@ export default function CardView({ className = '' }: CardViewProps) {
 
           {/* 底部统计信息 */}
           {filteredItems.length > 0 && (
-            <div className="mt-8 pt-4 border-t border-gray-100">
-              <div className="text-center text-sm text-gray-500">
+            <div className="mt-8 pt-4 border-t border-gray-100 dark:border-gray-700">
+              <div className="text-center text-sm text-gray-500 dark:text-gray-400">
                 共 {filteredItems.length} 个项目
               </div>
             </div>

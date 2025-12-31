@@ -1,14 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import { WallpaperResolution, ColorOption } from '@/types/settings';
 
-export type WallpaperResolution = '4k' | '1080p' | '720p' | 'mobile' | 'custom';
-
-export type SearchEngine = 'bing' | 'google' | 'baidu' | 'duckduckgo';
-
-export type ColorOption = {
-  name: string;
-  rgb: string; // RGB值，如 "0, 0, 0"
-  preview: string; // 预览色，如 "#000000"
-};
+export type { WallpaperResolution, ColorOption };
 
 export const colorOptions: ColorOption[] = [
   { name: '黑色', rgb: '0, 0, 0', preview: '#000000' },
@@ -47,7 +40,17 @@ interface TransparencyContextType {
   workCountdownEnabled: boolean; // 下班倒计时开关
   lunchTime: string; // 午休时间 HH:mm
   offWorkTime: string; // 下班时间 HH:mm
-  searchEngine: SearchEngine; // 默认搜索引擎
+  aiIconDisplayMode: 'circular' | 'dropdown'; // AI图标显示模式：圆形布局或下拉面板
+  atmosphereMode: 'auto' | 'snow' | 'leaf' | 'off'; // 氛围效果模式
+  atmosphereParticleCount: number; // 氛围效果粒子数量
+  atmosphereWindEnabled: boolean; // 风力效果开关
+  darkOverlayEnabled: boolean; // 黑色遮罩开关
+  darkOverlayMode: 'off' | 'always' | 'smart'; // 黑色遮罩模式：关闭/始终/智能
+  isSlowMotion: boolean; // 粒子慢放状态（鼠标按住空白区域时激活）
+  darkMode: boolean; // 夜间模式开关（计算属性）
+  darkModePreference: 'system' | 'on' | 'off' | 'scheduled'; // 夜间模式偏好
+  darkModeScheduleStart: string; // 定时开始时间 HH:mm
+  darkModeScheduleEnd: string; // 定时结束时间 HH:mm
   setCardOpacity: (opacity: number) => void;
   setSearchBarOpacity: (opacity: number) => void;
   setParallaxEnabled: (enabled: boolean) => void;
@@ -73,7 +76,16 @@ interface TransparencyContextType {
   setWorkCountdownEnabled: (enabled: boolean) => void;
   setLunchTime: (time: string) => void;
   setOffWorkTime: (time: string) => void;
-  setSearchEngine: (engine: SearchEngine) => void;
+  setAiIconDisplayMode: (mode: 'circular' | 'dropdown') => void;
+  setAtmosphereMode: (mode: 'auto' | 'snow' | 'leaf' | 'off') => void;
+  setAtmosphereParticleCount: (count: number) => void;
+  setAtmosphereWindEnabled: (enabled: boolean) => void;
+  setDarkOverlayEnabled: (enabled: boolean) => void;
+  setDarkOverlayMode: (mode: 'off' | 'always' | 'smart') => void;
+  setDarkModePreference: (preference: 'system' | 'on' | 'off' | 'scheduled') => void;
+  setDarkModeScheduleStart: (time: string) => void;
+  setDarkModeScheduleEnd: (time: string) => void;
+  setIsSlowMotion: (value: boolean) => void;
 }
 
 const TransparencyContext = createContext<TransparencyContextType | undefined>(undefined);
@@ -109,15 +121,15 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     return saved || '255, 255, 255'; // 默认白色
   });
 
-  // 获取默认壁纸分辨率（根据设备屏幕判断）
+  // 获取默认壁纸分辨率（根据宽高比判断）
   const getDefaultResolution = (): WallpaperResolution => {
-    // 检查是否为竖屏设备
-    const isPortrait = window.innerHeight > window.innerWidth;
-    if (isPortrait) {
+    // 使用宽高比判断：ratio < 1 表示竖屏，使用mobile壁纸；ratio >= 1 表示横屏，使用1080p壁纸
+    const aspectRatio = window.innerWidth / window.innerHeight;
+    if (aspectRatio < 1) {
       return 'mobile';
     }
 
-    // 对于宽屏设备，默认使用1080p
+    // 横屏设备，默认使用1080p
     return '1080p';
   };
 
@@ -137,7 +149,7 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
 
   const [autoSyncInterval, setAutoSyncInterval] = useState(() => {
     const saved = localStorage.getItem('autoSyncInterval');
-    const value = saved ? parseInt(saved) : 30; // 默认30秒
+    const value = saved ? parseInt(saved) : 10; // 默认10秒
     return Math.max(3, Math.min(60, value)); // 限制在3-60秒之间
   });
 
@@ -220,11 +232,129 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     return saved || '18:00'; // 默认下班时间
   });
 
-  // 搜索引擎设置
-  const [searchEngine, setSearchEngine] = useState<SearchEngine>(() => {
-    const saved = localStorage.getItem('searchEngine') as SearchEngine;
-    return saved || 'bing'; // 默认使用Bing
+  // AI图标显示模式
+  const [aiIconDisplayMode, setAiIconDisplayMode] = useState<'circular' | 'dropdown'>(() => {
+    const saved = localStorage.getItem('aiIconDisplayMode') as 'circular' | 'dropdown';
+    return saved || 'circular'; // 默认圆形布局
   });
+
+  // 氛围效果模式（自动/雪花/落叶/关闭）
+  const [atmosphereMode, setAtmosphereMode] = useState<'auto' | 'snow' | 'leaf' | 'off'>(() => {
+    const saved = localStorage.getItem('atmosphereMode');
+    // 兼容旧的 atmosphereEnabled 配置
+    if (!saved) {
+      const oldEnabled = localStorage.getItem('atmosphereEnabled');
+      return oldEnabled === 'false' ? 'off' : 'auto';
+    }
+    return (saved as 'auto' | 'snow' | 'leaf' | 'off') || 'auto';
+  });
+
+  // 氛围效果粒子数量（1-200，滑轨档位1-100对应粒子数2-200）
+  const [atmosphereParticleCount, setAtmosphereParticleCount] = useState(() => {
+    const saved = localStorage.getItem('atmosphereParticleCount');
+    const value = saved ? parseInt(saved, 10) : 60; // 默认30档对应60个粒子
+    return Math.min(Math.max(value, 1), 200); // 限制在 1-200 范围内
+  });
+
+  // 风力效果开关
+  const [atmosphereWindEnabled, setAtmosphereWindEnabled] = useState(() => {
+    const saved = localStorage.getItem('atmosphereWindEnabled');
+    return saved ? saved === 'true' : true; // 默认开启
+  });
+
+  // 黑色遮罩开关（壁纸暗角效果）
+  const [darkOverlayEnabled, setDarkOverlayEnabled] = useState(() => {
+    const saved = localStorage.getItem('darkOverlayEnabled');
+    return saved ? saved === 'true' : false; // 默认关闭
+  });
+
+  // 黑色遮罩模式：关闭/始终/智能
+  const [darkOverlayMode, setDarkOverlayMode] = useState<'off' | 'always' | 'smart'>(() => {
+    const saved = localStorage.getItem('darkOverlayMode') as 'off' | 'always' | 'smart';
+    return saved || 'smart'; // 默认智能模式
+  });
+
+  // 粒子慢放状态（鼠标按住空白区域时激活，不需要持久化）
+  const [isSlowMotion, setIsSlowMotion] = useState(false);
+
+  // 夜间模式偏好设置
+  const [darkModePreference, setDarkModePreference] = useState<'system' | 'on' | 'off' | 'scheduled'>(() => {
+    const saved = localStorage.getItem('darkModePreference') as 'system' | 'on' | 'off' | 'scheduled';
+    return saved || 'system'; // 默认跟随系统
+  });
+
+  // 定时开始时间
+  const [darkModeScheduleStart, setDarkModeScheduleStart] = useState(() => {
+    const saved = localStorage.getItem('darkModeScheduleStart');
+    return saved || '22:00'; // 默认晚上10点
+  });
+
+  // 定时结束时间
+  const [darkModeScheduleEnd, setDarkModeScheduleEnd] = useState(() => {
+    const saved = localStorage.getItem('darkModeScheduleEnd');
+    return saved || '06:00'; // 默认早上6点
+  });
+
+  // 用于触发定时模式更新的时间状态
+  const [currentMinute, setCurrentMinute] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  // 每分钟更新一次，用于定时模式
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      setCurrentMinute(now.getHours() * 60 + now.getMinutes());
+    }, 60000); // 每分钟检查一次
+    return () => clearInterval(interval);
+  }, []);
+
+  // 判断当前时间是否在定时范围内
+  const isInScheduledTime = (start: string, end: string): boolean => {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const [startHour, startMin] = start.split(':').map(Number);
+    const [endHour, endMin] = end.split(':').map(Number);
+
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+
+    // 处理跨天情况（如 22:00 - 06:00）
+    if (startMinutes > endMinutes) {
+      return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+    }
+    // 同一天内
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  };
+
+  // 监听系统主题变化
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setSystemPrefersDark(e.matches);
+    mediaQuery.addEventListener('change', handler);
+    return () => mediaQuery.removeEventListener('change', handler);
+  }, []);
+
+  // 计算当前是否应该启用深色模式
+  const darkMode = useMemo(() => {
+    switch (darkModePreference) {
+      case 'on':
+        return true;
+      case 'off':
+        return false;
+      case 'scheduled':
+        return isInScheduledTime(darkModeScheduleStart, darkModeScheduleEnd);
+      case 'system':
+      default:
+        return systemPrefersDark;
+    }
+  }, [darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, systemPrefersDark, currentMinute]);
 
   // 初始化autoSortEnabled从localStorage
   useEffect(() => {
@@ -331,66 +461,129 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   }, [offWorkTime]);
 
   useEffect(() => {
-    localStorage.setItem('searchEngine', searchEngine);
-  }, [searchEngine]);
+    localStorage.setItem('aiIconDisplayMode', aiIconDisplayMode);
+  }, [aiIconDisplayMode]);
+
+  useEffect(() => {
+    localStorage.setItem('atmosphereMode', atmosphereMode);
+  }, [atmosphereMode]);
+
+  useEffect(() => {
+    localStorage.setItem('atmosphereParticleCount', atmosphereParticleCount.toString());
+  }, [atmosphereParticleCount]);
+
+  useEffect(() => {
+    localStorage.setItem('atmosphereWindEnabled', atmosphereWindEnabled.toString());
+  }, [atmosphereWindEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('darkOverlayEnabled', darkOverlayEnabled.toString());
+  }, [darkOverlayEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('darkOverlayMode', darkOverlayMode);
+  }, [darkOverlayMode]);
+
+  // 夜间模式偏好设置持久化
+  useEffect(() => {
+    localStorage.setItem('darkModePreference', darkModePreference);
+  }, [darkModePreference]);
+
+  useEffect(() => {
+    localStorage.setItem('darkModeScheduleStart', darkModeScheduleStart);
+  }, [darkModeScheduleStart]);
+
+  useEffect(() => {
+    localStorage.setItem('darkModeScheduleEnd', darkModeScheduleEnd);
+  }, [darkModeScheduleEnd]);
+
+  // 夜间模式主题应用
+  useEffect(() => {
+    const theme = darkMode ? 'dark' : 'light';
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(theme);
+  }, [darkMode]);
+
+  const contextValue = React.useMemo(() => ({
+    cardOpacity,
+    searchBarOpacity,
+    parallaxEnabled,
+    wallpaperResolution,
+    isSettingsOpen,
+    isSearchFocused,
+    cardColor,
+    searchBarColor,
+    autoSyncEnabled,
+    autoSyncInterval,
+    searchInNewTab,
+    autoSortEnabled,
+    timeComponentEnabled,
+    showFullDate,
+    showSeconds,
+    showWeekday,
+    showYear,
+    showMonth,
+    showDay,
+    dateDisplayMode,
+    searchBarBorderRadius,
+    animationStyle,
+    workCountdownEnabled,
+    lunchTime,
+    offWorkTime,
+    aiIconDisplayMode,
+    atmosphereMode,
+    atmosphereParticleCount,
+    atmosphereWindEnabled,
+    darkOverlayEnabled,
+    darkOverlayMode,
+    darkMode,
+    darkModePreference,
+    darkModeScheduleStart,
+    darkModeScheduleEnd,
+    isSlowMotion,
+    setCardOpacity,
+    setSearchBarOpacity,
+    setParallaxEnabled,
+    setWallpaperResolution,
+    setIsSettingsOpen,
+    setIsSearchFocused,
+    setCardColor,
+    setSearchBarColor,
+    setAutoSyncEnabled,
+    setAutoSyncInterval,
+    setSearchInNewTab,
+    setAutoSortEnabled,
+    setTimeComponentEnabled,
+    setShowFullDate,
+    setShowSeconds,
+    setShowWeekday,
+    setShowYear,
+    setShowMonth,
+    setShowDay,
+    setDateDisplayMode,
+    setSearchBarBorderRadius,
+    setAnimationStyle,
+    setWorkCountdownEnabled,
+    setLunchTime,
+    setOffWorkTime,
+    setAiIconDisplayMode,
+    setAtmosphereMode,
+    setAtmosphereParticleCount,
+    setAtmosphereWindEnabled,
+    setDarkOverlayEnabled,
+    setDarkOverlayMode,
+    setDarkModePreference,
+    setDarkModeScheduleStart,
+    setDarkModeScheduleEnd,
+    setIsSlowMotion,
+  }), [
+    cardOpacity, searchBarOpacity, parallaxEnabled, wallpaperResolution, isSettingsOpen, isSearchFocused, cardColor, searchBarColor,
+    autoSyncEnabled, autoSyncInterval, searchInNewTab, autoSortEnabled, timeComponentEnabled, showFullDate, showSeconds, showWeekday,
+    showYear, showMonth, showDay, dateDisplayMode, searchBarBorderRadius, animationStyle, workCountdownEnabled, lunchTime, offWorkTime, aiIconDisplayMode, atmosphereMode, atmosphereParticleCount, atmosphereWindEnabled, darkOverlayEnabled, darkOverlayMode, darkMode, darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, isSlowMotion
+  ]);
 
   return (
-    <TransparencyContext.Provider
-      value={{
-        cardOpacity,
-        searchBarOpacity,
-        parallaxEnabled,
-        wallpaperResolution,
-        isSettingsOpen,
-        isSearchFocused,
-        cardColor,
-        searchBarColor,
-        autoSyncEnabled,
-        autoSyncInterval,
-        searchInNewTab,
-        autoSortEnabled,
-        timeComponentEnabled,
-        showFullDate,
-        showSeconds,
-        showWeekday,
-        showYear,
-        showMonth,
-        showDay,
-        dateDisplayMode,
-        searchBarBorderRadius,
-        animationStyle,
-        workCountdownEnabled,
-        lunchTime,
-        offWorkTime,
-        searchEngine,
-        setCardOpacity,
-        setSearchBarOpacity,
-        setParallaxEnabled,
-        setWallpaperResolution,
-        setIsSettingsOpen,
-        setIsSearchFocused,
-        setCardColor,
-        setSearchBarColor,
-        setAutoSyncEnabled,
-        setAutoSyncInterval,
-        setSearchInNewTab,
-        setAutoSortEnabled,
-        setTimeComponentEnabled,
-        setShowFullDate,
-        setShowSeconds,
-        setShowWeekday,
-        setShowYear,
-        setShowMonth,
-        setShowDay,
-        setDateDisplayMode,
-        setSearchBarBorderRadius,
-        setAnimationStyle,
-        setWorkCountdownEnabled,
-        setLunchTime,
-        setOffWorkTime,
-        setSearchEngine,
-      }}
-    >
+    <TransparencyContext.Provider value={contextValue}>
       {children}
     </TransparencyContext.Provider>
   );
