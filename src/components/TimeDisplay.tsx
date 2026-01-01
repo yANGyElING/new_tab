@@ -144,7 +144,7 @@ export function TimeDisplay() {
   return (
     <div
       className="absolute left-0 right-0 z-5 flex justify-center px-4 select-none pointer-events-none"
-      style={{ top: isMobile ? '-65px' : '-45px' }}
+      style={{ top: isMobile ? '-85px' : '-65px' }}
     >
       <motion.div
         className="w-full flex justify-center"
@@ -157,7 +157,7 @@ export function TimeDisplay() {
         transition={{ duration: 0.3 }}
       >
         <div
-          className="relative flex flex-col items-center select-none"
+          className="relative flex flex-col items-center select-none mb-8"
           style={{
             minHeight: '60px',
             transform: hasAnyDateElement ? 'translateY(0)' : 'translateY(15px)',
