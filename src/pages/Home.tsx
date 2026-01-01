@@ -4,7 +4,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { TimeDisplay } from '@/components/TimeDisplay';
 import { PoemDisplay } from '@/components/PoemDisplay';
 import { AnimatedCat } from '@/components/AnimatedCat';
-import CardEditModal from '@/components/CardEditModal';
+import { DockEditModal, DockItem } from '@/components/Dock';
 // 拖拽逻辑已迁移到 WebsiteCard
 import { motion } from 'framer-motion';
 import { useTransparency } from '@/contexts/TransparencyContext';
@@ -22,6 +22,7 @@ import SnowEffect from '@/components/effects/SnowEffect';
 import LeafEffect from '@/components/effects/LeafEffect';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import AnnouncementCenter from '@/components/AnnouncementCenter';
+import { Dock } from '@/components/Dock';
 import { isWinterSeason, isAutumnSeason } from '@/utils/solarTerms';
 import { shouldApplyOverlay, clearAllColorCache } from '@/utils/imageColorAnalyzer';
 
@@ -358,6 +359,8 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     favicon: string;
     tags: string[];
     note?: string;
+    icon?: string;
+    iconColor?: string;
     visitCount?: number;
     lastVisit?: string;
   }) => {
@@ -459,7 +462,7 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     const gridClasses = getGridClasses();
 
     return {
-      container: `relative min-h-[100dvh] ${isMobile ? 'pt-[12vh]' : 'pt-[33vh]'}`,
+      container: `relative min-h-[100dvh] ${isMobile ? 'pt-[12vh]' : 'pt-[28vh]'}`,
       searchContainer: searchBarLayout.containerClass,
       cardContainer: `${isMobile ? 'pt-2 pb-4' : 'pt-16 pb-8'} px-2 max-w-6xl mx-auto`,
       gridLayout: gridClasses,
@@ -708,6 +711,9 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
         {/* 公告中心入口 - 左下角 */}
         <AnnouncementCenter isVisible={!isSearchFocused} />
 
+        {/* iOS 风格 Dock 栏 - 底部居中 */}
+        <Dock isVisible={!isSearchFocused} />
+
         {/* 诗句显示 - 页面下方 */}
         <PoemDisplay />
 
@@ -719,19 +725,20 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
 
         {/* 新增卡片模态框 */}
         {showAddCardModal && (
-          <CardEditModal
-            id=""
-            name=""
-            url=""
-            favicon=""
-            tags={[]}
-            note=""
+          <DockEditModal
+            item={null}
             onClose={() => setShowAddCardModal(false)}
-            onSave={(data) => {
+            onSave={(item: DockItem) => {
               // 创建新卡片
               const newCard = {
-                ...data,
-                id: `card-${Date.now()}`,
+                id: item.id || `card-${Date.now()}`,
+                name: item.name,
+                url: item.url,
+                favicon: item.favicon,
+                tags: item.tags || [],
+                note: item.note,
+                icon: item.icon,
+                iconColor: item.iconColor,
                 visitCount: 0,
                 lastVisit: new Date().toISOString().split('T')[0],
               };

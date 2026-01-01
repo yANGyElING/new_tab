@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS user_settings (
   show_day BOOLEAN DEFAULT true,
   -- Style
   search_bar_border_radius INTEGER DEFAULT 12,
+  -- Dock Items (iOS style dock bar)
+  dock_items JSONB DEFAULT '[]'::jsonb,
   -- Meta
   last_sync TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

@@ -2,7 +2,8 @@ import { motion } from 'framer-motion';
 import { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import Tilt from 'react-parallax-tilt';
-import CardEditModal from './CardEditModal';
+import { DockEditModal } from './Dock';
+import type { DockItem } from './Dock';
 import { ContextMenu, ContextMenuItem } from './ContextMenu';
 import { useTransparency } from '@/contexts/TransparencyContext';
 import { useLazyFavicon } from '@/hooks/useLazyFavicon';
@@ -16,6 +17,8 @@ interface WebsiteCardData {
   favicon: string;
   tags: string[];
   note?: string;
+  icon?: string;        // Built-in icon (FontAwesome class)
+  iconColor?: string;   // Icon color
   visitCount?: number;
   lastVisit?: string;
 }
@@ -28,6 +31,8 @@ interface WebsiteCardProps {
   tags: string[];
   visitCount: number;
   note?: string;
+  icon?: string;
+  iconColor?: string;
   index: number;
   moveCard: (dragIndex: number, hoverIndex: number) => void;
   onSave: (data: WebsiteCardData) => void;
@@ -44,6 +49,8 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
   tags,
   visitCount,
   note,
+  icon,
+  iconColor,
   index,
   moveCard,
   onSave,
@@ -236,6 +243,14 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
         onAddCard();
       },
     }] : []),
+    ...(onDelete ? [{
+      icon: 'fa-solid fa-trash',
+      label: '删除卡片',
+      onClick: () => {
+        onDelete(id);
+      },
+      danger: true,
+    }] : []),
   ];
 
   return (
@@ -321,23 +336,33 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
             {/* 网站图标和名称区域 */}
             <div className={`flex flex-col items-center ${isMobile ? 'px-0.5' : 'px-2'} select-none`}>
               <div
-                className={`${isMobile ? 'w-7 h-7' : 'w-11 h-11 mb-1'} rounded-md overflow-hidden select-none relative`}
+                className={`${isMobile ? 'w-7 h-7' : 'w-11 h-11 mb-1'} rounded-md overflow-hidden select-none relative flex items-center justify-center`}
+                style={icon ? { backgroundColor: 'rgba(255,255,255,0.1)' } : undefined}
               >
-                <img
-                  src={faviconUrl}
-                  alt={`${name} favicon`}
-                  className="w-full h-full object-contain select-none"
-                  loading="lazy"
-                  draggable="false"
-                />
+                {icon ? (
+                  // Built-in icon
+                  <i
+                    className={`${icon} ${isMobile ? 'text-base' : 'text-2xl'}`}
+                    style={{ color: iconColor || '#FFFFFF' }}
+                  />
+                ) : (
+                  // Favicon
+                  <img
+                    src={faviconUrl}
+                    alt={`${name} favicon`}
+                    className="w-full h-full object-contain select-none"
+                    loading="lazy"
+                    draggable="false"
+                  />
+                )}
                 {/* 状态指示器 */}
-                {isLoading && (
+                {!icon && isLoading && (
                   <div
                     className={`absolute top-0 right-0 ${isMobile ? 'w-1.5 h-1.5' : 'w-2 h-2'} bg-yellow-400 rounded-full animate-pulse`}
                     title="加载中..."
                   ></div>
                 )}
-                {!isLoading && error && (
+                {!icon && !isLoading && error && (
                   <div
                     className={`absolute top-0 right-0 ${isMobile ? 'w-1.5 h-1.5' : 'w-2 h-2'} bg-red-400 rounded-full`}
                     title="加载失败"
@@ -441,24 +466,26 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
       </Tilt >
 
       {showEditModal && (
-        <CardEditModal
-          id={id}
-          name={name}
-          url={url}
-          favicon={favicon}
-          tags={tags}
-          note={note}
+        <DockEditModal
+          item={{ id, name, url, favicon, tags, note, icon, iconColor, location: 'home' }}
           onClose={() => setShowEditModal(false)}
-          onSave={(data) => {
-            onSave(data);
+          onSave={(item: DockItem) => {
+            onSave({
+              id: item.id,
+              name: item.name,
+              url: item.url,
+              favicon: item.favicon,
+              tags: item.tags || [],
+              note: item.note,
+              icon: item.icon,
+              iconColor: item.iconColor,
+            });
             setShowEditModal(false);
             // 保存后触发同步
             onCardSave?.();
           }}
-          onDelete={onDelete}
         />
-      )
-      }
+      )}
 
       {/* 右键菜单 */}
       {contextMenu && (

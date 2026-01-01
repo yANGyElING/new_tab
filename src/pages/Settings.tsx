@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, memo } from 'react';
 import { motion } from 'framer-motion';
-import CardEditModal from '@/components/CardEditModal';
+import { DockEditModal, DockItem } from '@/components/Dock';
 import SyncStatusIndicator from '@/components/SyncStatusIndicator';
 import AuthForm from '@/components/AuthForm';
 import PrivacySettings from '@/components/PrivacySettings';
@@ -26,6 +26,7 @@ import {
 } from '@/lib/supabaseSync';
 import { useDataManager } from '@/hooks/useDataManager';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { useDockData } from '@/hooks/useDockData';
 import { faviconCache } from '@/lib/faviconCache';
 
 interface SettingsProps {
@@ -238,6 +239,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
 
   const { currentUser } = useAuth();
   const { updateSyncStatus } = useSyncStatus();
+  const { showLabels, setShowLabels } = useDockData();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
 
@@ -556,16 +558,16 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     onClose();
   };
 
-  const handleSaveNewCard = (data: {
-    id: string;
-    name: string;
-    url: string;
-    favicon: string;
-    tags: string[];
-    note?: string;
-  }) => {
+  const handleSaveNewCard = (item: DockItem) => {
     const newCard = {
-      ...data,
+      id: item.id || `card-${Date.now()}`,
+      name: item.name,
+      url: item.url,
+      favicon: item.favicon,
+      tags: item.tags || [],
+      note: item.note,
+      icon: item.icon,
+      iconColor: item.iconColor,
       visitCount: 0,
       lastVisit: new Date().toISOString().split('T')[0],
     };
@@ -1632,6 +1634,37 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                     />
                   </button>
                 </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* Dock 栏名称标签显示开关 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <i className="fa-solid fa-grip-lines text-blue-500 text-sm"></i>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                        Dock栏显示名称
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                      {showLabels ? '图标下方显示名称标签' : '仅悬停时显示名称提示'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowLabels(!showLabels)}
+                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${showLabels
+                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 shadow-lg shadow-purple-300/50'
+                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
+                      }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${showLabels
+                        ? 'translate-x-6 shadow-purple-200'
+                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
+                        }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2261,18 +2294,12 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
       </motion.div>
 
       {showAddCardModal && (
-        <CardEditModal
-          id={`new-${Date.now()}`}
-          name=""
-          url=""
-          favicon=""
-          tags={[]}
-          note=""
+        <DockEditModal
+          item={null}
           onClose={() => setShowAddCardModal(false)}
           onSave={handleSaveNewCard}
         />
-      )
-      }
+      )}
 
       {/* 隐私设置面板 */}
       {
