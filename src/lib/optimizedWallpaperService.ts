@@ -235,32 +235,32 @@ class OptimizedWallpaperService {
 
   // 移除未使用的方法
 
-  // 获取 Picsum Photos 壁纸URL（无需 API Key）
+  // 获取 Lorem Picsum 壁纸URL（无需 API Key）
   private async getWallpaperUrl(resolution: string): Promise<string> {
     try {
       const resolutionMap = {
-        '4k': '3840/2160',
-        '1080p': '1920/1080',
-        '720p': '1366/768',
-        mobile: '1080/1920',
+        '4k': { width: 3840, height: 2160 },
+        '1080p': { width: 1920, height: 1080 },
+        '720p': { width: 1366, height: 768 },
+        mobile: { width: 1080, height: 1920 },
       };
 
-      const targetResolution =
-        resolutionMap[resolution as keyof typeof resolutionMap] || '1920/1080';
+      const { width, height } = resolutionMap[resolution as keyof typeof resolutionMap] || { width: 1920, height: 1080 };
 
-      // Picsum Photos API - 完全免费，无需 API Key
-      // 使用日期作为随机种子，确保每天获取不同的壁纸
+      // Lorem Picsum API - 使用随机 ID 而不是 seed
+      // 根据日期生成一个 1-1000 之间的随机 ID
       const today = this.getLocalDateString();
-      const randomSeed = today.replace(/-/g, ''); // 将日期转换为数字种子
+      const dateNumber = parseInt(today.replace(/-/g, ''), 10);
+      const imageId = (dateNumber % 1000) + 1; // 1-1000
 
-      // Picsum Photos URL 格式: https://picsum.photos/seed/{seed}/{width}/{height}
-      const url = `https://picsum.photos/seed/${randomSeed}/${targetResolution}`;
+      // 使用 /id/ 端点，避免重定向导致的 CORS 问题
+      const url = `https://picsum.photos/id/${imageId}/${width}/${height}`;
 
-      logger.wallpaper.info('生成 Picsum Photos 壁纸 URL', { resolution, url });
+      logger.wallpaper.info('生成 Lorem Picsum 壁纸 URL', { resolution, url, imageId });
 
       return url;
     } catch (error) {
-      logger.wallpaper.warn('Picsum Photos 壁纸服务访问失败', error);
+      logger.wallpaper.warn('Lorem Picsum 壁纸服务访问失败', error);
       return this.fallbackImage;
     }
   }
