@@ -50,6 +50,9 @@ Thumbs.db
 *.swp
 .cache/
 
+# Windows reserved filename artifacts
+nul
+
 # Package manager lockfiles (optional - uncomment if you want to ignore them)
 # package-lock.json
 # yarn.lock
