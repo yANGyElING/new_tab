@@ -147,11 +147,11 @@ export const DockItemComponent = memo(function DockItemComponent({
         {showLabel ? (
           // Show label below icon
           <span
-            className={`mt-1 text-white/90 truncate max-w-[48px] text-center leading-tight ${
+            className={`mt-1 text-white truncate max-w-[48px] text-center leading-tight ${
               isMobile ? 'text-[9px]' : 'text-[10px]'
             }`}
             style={{
-              textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+              textShadow: '0 2px 4px rgba(0,0,0,0.75)',
             }}
           >
             {item.name}

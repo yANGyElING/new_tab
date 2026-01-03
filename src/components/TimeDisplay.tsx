@@ -6,7 +6,6 @@ import { TodoModal } from './TodoModal';
 
 export function TimeDisplay() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isColonVisible, setIsColonVisible] = useState(true);
   const [showTodoModal, setShowTodoModal] = useState(false);
   const {
     showFullDate,
@@ -24,20 +23,9 @@ export function TimeDisplay() {
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-
-    if (showSeconds) {
-      // 精确到秒模式，每秒1更新
-      timer = setInterval(() => {
-        setCurrentTime(new Date());
-      }, 1000);
-    } else {
-      // 不精确到秒模式，每500ms更新闪烁状态
-      timer = setInterval(() => {
-        setCurrentTime(new Date());
-        setIsColonVisible((prev) => !prev);
-      }, 500);
-    }
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
 
     return () => clearInterval(timer);
   }, [showSeconds]);
@@ -50,9 +38,7 @@ export function TimeDisplay() {
       const seconds = date.getSeconds().toString().padStart(2, '0');
       return { text: `${hours}:${minutes}:${seconds}`, colonOpacity: 1 };
     } else {
-      // 不精确到秒时，冒号透明度闪烁效果
-      const colonOpacity = isColonVisible ? 1 : 0.3;
-      return { text: `${hours}:${minutes}`, colonOpacity };
+      return { text: `${hours}:${minutes}`, colonOpacity: 1 };
     }
   };
 
@@ -144,7 +130,7 @@ export function TimeDisplay() {
   return (
     <div
       className="absolute left-0 right-0 z-5 flex justify-center px-4 select-none pointer-events-none"
-      style={{ top: isMobile ? '-85px' : '-65px' }}
+      style={{ top: isMobile ? '-95px' : '-85px' }}
     >
       <motion.div
         className="w-full flex justify-center"
@@ -164,7 +150,7 @@ export function TimeDisplay() {
           }}
         >
           <div
-            className="text-white/80 tracking-wide mb-1 drop-shadow-sm cursor-pointer hover:text-white/90 transition-all duration-200 hover:scale-105 pointer-events-auto time-display-clickable select-none"
+            className="text-white tracking-wide mb-1 drop-shadow-sm cursor-pointer transition-all duration-200 hover:scale-105 pointer-events-auto time-display-clickable select-none"
             style={{
               fontSize: isMobile ? '2em' : '4em',
               fontWeight: 400,
@@ -209,7 +195,7 @@ export function TimeDisplay() {
 
           {/* 始终占据固定空间，通过透明度控制显示 */}
           <div
-            className="text-white/60 text-sm font-medium drop-shadow-sm h-5 flex items-center justify-center min-w-[200px] select-none"
+            className="text-white text-sm font-medium drop-shadow-sm h-5 flex items-center justify-center min-w-[200px] select-none"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >

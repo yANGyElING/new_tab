@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { useState, useRef, useEffect, memo, useCallback } from 'react';
+import { useState, useRef, useEffect, memo, useCallback, useMemo } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import Tilt from 'react-parallax-tilt';
 import { DockEditModal } from './Dock';
@@ -41,6 +41,13 @@ interface WebsiteCardProps {
   onAddCard?: () => void; // 新增卡片回调
 }
 
+function isIpAddress(hostname: string): boolean {
+  if (!hostname) return false;
+  if (hostname.includes(':')) return true; // IPv6
+  // IPv4
+  return /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/.test(hostname);
+}
+
 export const WebsiteCard = memo(function WebsiteCardComponent({
   id,
   name,
@@ -67,6 +74,17 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
   const { cardOpacity, cardColor, autoSortEnabled, searchInNewTab } = useTransparency();
   const { faviconUrl, isLoading, error } = useLazyFavicon(url, favicon, cardRef);
   const { isMobile, getCardClasses } = useResponsiveLayout();
+  const cardBorderRadius = isMobile ? 20 : 24;
+
+  const subtitleText = useMemo(() => {
+    if (note) return note;
+    try {
+      const hostname = new URL(url).hostname;
+      return isIpAddress(hostname) ? '' : hostname;
+    } catch {
+      return '';
+    }
+  }, [note, url]);
 
   const [{ isDragging }, drag] = useDrag({
     type: 'WEBSITE_CARD',
@@ -272,11 +290,12 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
         {/* 简化的卡片容器 - 保留圆角 */}
         <motion.div
           data-website-card="true"
-          className={`${getCardClasses()} relative rounded-lg`}
+          className={`${getCardClasses()} relative`}
           style={{
             backgroundColor: `rgba(${cardColor}, ${cardOpacity})`,
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: cardBorderRadius,
             boxShadow: isDragging ? '0 20px 40px rgba(0,0,0,0.3)' : 'none', // 拖拽时添加阴影
           }}
           animate={{
@@ -370,17 +389,17 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
                 )}
               </div>
               <h3
-                className={`${isMobile ? 'text-[10px] line-clamp-1 mt-0.5 px-0.5' : 'text-xs line-clamp-2 px-2 mt-1'} font-medium text-white text-center select-none`}
+                className={`${isMobile ? 'text-[10px] line-clamp-1 mt-0.5 px-0.5' : 'text-xs line-clamp-2 px-2 mt-1'} font-medium text-white text-center select-none drop-shadow-sm`}
               >
                 {name}
               </h3>
             </div>
 
             {/* 备注区域 - 移动端简化 */}
-            {!isMobile && (
+            {!isMobile && subtitleText && (
               <div className="px-2 mb-1 select-none">
-                <p className="text-white/60 text-[0.65rem] text-center line-clamp-2 select-none">
-                  {note || new URL(url).hostname}
+                <p className="text-white/80 text-[0.65rem] text-center line-clamp-2 select-none drop-shadow-sm">
+                  {subtitleText}
                 </p>
               </div>
             )}
@@ -397,20 +416,12 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
                       {tag}
                     </span>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {/* 访问次数显示 - 移动端隐藏 */}
-            {visitCount > 0 && !isMobile && (
-              <div className="px-2 pb-2 select-none">
-                <div className="text-center">
-                  <span
-                    className="px-2 py-1 bg-blue-500/20 text-blue-200 rounded-full text-[0.65rem] border border-blue-300/30 select-none"
-                  >
-                    <i className="fa-solid fa-eye mr-1 select-none"></i>
-                    <span className="select-none">{visitCount}次访问</span>
-                  </span>
+                  {visitCount > 0 && (
+                    <span className="px-1.5 py-0.5 bg-blue-500/30 text-blue-100 rounded-full text-[0.65rem] border border-blue-200/40 select-none">
+                      <i className="fa-solid fa-eye mr-1 select-none"></i>
+                      <span className="select-none">{visitCount}</span>
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -422,26 +433,28 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
           {/* 悬停效果边框 */}
           {!isMobile && isHovered && !isDragging && (
             <motion.div
-              className="absolute inset-0 rounded-lg ring-2 ring-white/30 pointer-events-none"
+              className="absolute inset-0 ring-2 ring-white/30 pointer-events-none"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.4, ease: 'easeOut' }}
+              style={{ borderRadius: cardBorderRadius }}
             />
           )}
 
           {/* 拖拽时的占位提示 */}
           {isDragging && (
             <motion.div
-              className="absolute inset-0 rounded-lg border-2 border-dashed border-white/50 bg-white/10 pointer-events-none flex items-center justify-center"
+              className="absolute inset-0 border-2 border-dashed border-white/50 bg-white/10 pointer-events-none flex items-center justify-center"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
+              style={{ borderRadius: cardBorderRadius }}
             >
               <motion.div
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
-                className="text-white/60 text-sm"
+                className="text-white/80 text-sm"
               >
                 <i className="fa-solid fa-arrows-up-down-left-right"></i>
               </motion.div>
@@ -451,7 +464,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
           {/* 悬停时的阴影效果 */}
           {!isMobile && isHovered && (
             <motion.div
-              className="absolute inset-0 rounded-lg pointer-events-none"
+              className="absolute inset-0 pointer-events-none"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -459,6 +472,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
               style={{
                 boxShadow: '0 8px 25px rgba(0,0,0,0.2)',
                 zIndex: -1,
+                borderRadius: cardBorderRadius,
               }}
             />
           )}
