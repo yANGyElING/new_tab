@@ -36,21 +36,21 @@ const DEFAULT_BREAKPOINTS: ResponsiveBreakpoints = {
 
 const DEFAULT_LAYOUT: ResponsiveLayoutConfig = {
   columns: {
-    mobile: 4,  // 移动端改为4列紧凑布局
-    tablet: 3,
-    tabletLandscape: 4,
-    desktop: 6,
-    wide: 8,
+    mobile: 6,
+    tablet: 8,
+    tabletLandscape: 9,
+    desktop: 12,
+    wide: 16,
   },
   gaps: {
-    mobile: 'gap-x-1.5 gap-y-3',  // 更紧凑的间距
-    tablet: 'gap-x-3 gap-y-8',
-    desktop: 'gap-x-4 gap-y-10',
+    mobile: 'gap-1',
+    tablet: 'gap-1.5',
+    desktop: 'gap-2',
   },
   cardSizes: {
-    mobile: 'w-full',
-    tablet: 'w-full max-w-[180px]',
-    desktop: 'w-full max-w-[200px]',
+    mobile: 'w-[3.5rem]',
+    tablet: 'w-[4.5rem]',
+    desktop: 'w-[5rem]',
   },
 };
 
@@ -115,34 +115,24 @@ export function useResponsiveLayout(customConfig?: Partial<ResponsiveLayoutConfi
     };
   };
 
-  // 获取网格类名
+  // 获取网格类名 - 使用 flex 布局实现紧凑排列
   const getGridClasses = () => {
     const layout = getCurrentLayout();
-    const baseClasses = 'grid';
 
     if (layout.isMobile) {
-      return `${baseClasses} grid-cols-4 ${layout.gap} px-2`;  // 4列紧凑网格
+      return `flex flex-wrap justify-center ${layout.gap} px-2`;
     } else if (layout.isTablet) {
-      return layout.isTabletLandscape
-        ? `${baseClasses} grid-cols-4 ${layout.gap} px-4`
-        : `${baseClasses} grid-cols-3 ${layout.gap} px-4`;
+      return `flex flex-wrap justify-center ${layout.gap} px-4`;
     } else {
-      return `${baseClasses} grid-cols-6 lg:grid-cols-8 ${layout.gap} px-6`;
+      return `flex flex-wrap justify-center ${layout.gap} px-6`;
     }
   };
 
-  // 获取卡片容器类名
+  // 获取卡片容器类名 - 固定宽度不被flex压缩
   const getCardClasses = () => {
     const layout = getCurrentLayout();
-    const baseClasses = 'relative group';
 
-    if (layout.isMobile) {
-      return `${baseClasses} ${layout.cardSize} mx-auto`;
-    } else if (layout.isTablet) {
-      return `${baseClasses} ${layout.cardSize} mx-auto transform transition-transform duration-200 hover:scale-105`;
-    } else {
-      return `${baseClasses} ${layout.cardSize} mx-auto transform transition-all duration-300 hover:scale-110 hover:z-10`;
-    }
+    return `relative ${layout.cardSize} flex-shrink-0`;
   };
 
   // 获取搜索栏布局

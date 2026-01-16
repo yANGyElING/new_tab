@@ -46,6 +46,7 @@ interface TransparencyContextType {
   atmosphereWindEnabled: boolean; // 风力效果开关
   darkOverlayEnabled: boolean; // 黑色遮罩开关
   darkOverlayMode: 'off' | 'always' | 'smart'; // 黑色遮罩模式：关闭/始终/智能
+  noiseEnabled: boolean; // 壁纸噪点效果开关
   isSlowMotion: boolean; // 粒子慢放状态（鼠标按住空白区域时激活）
   darkMode: boolean; // 夜间模式开关（计算属性）
   darkModePreference: 'system' | 'on' | 'off' | 'scheduled'; // 夜间模式偏好
@@ -82,6 +83,7 @@ interface TransparencyContextType {
   setAtmosphereWindEnabled: (enabled: boolean) => void;
   setDarkOverlayEnabled: (enabled: boolean) => void;
   setDarkOverlayMode: (mode: 'off' | 'always' | 'smart') => void;
+  setNoiseEnabled: (enabled: boolean) => void;
   setDarkModePreference: (preference: 'system' | 'on' | 'off' | 'scheduled') => void;
   setDarkModeScheduleStart: (time: string) => void;
   setDarkModeScheduleEnd: (time: string) => void;
@@ -272,6 +274,12 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   const [darkOverlayMode, setDarkOverlayMode] = useState<'off' | 'always' | 'smart'>(() => {
     const saved = localStorage.getItem('darkOverlayMode') as 'off' | 'always' | 'smart';
     return saved || 'smart'; // 默认智能模式
+  });
+
+  // 壁纸噪点效果开关
+  const [noiseEnabled, setNoiseEnabled] = useState(() => {
+    const saved = localStorage.getItem('noiseEnabled');
+    return saved ? saved === 'true' : false; // 默认关闭
   });
 
   // 粒子慢放状态（鼠标按住空白区域时激活，不需要持久化）
@@ -484,6 +492,10 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('darkOverlayMode', darkOverlayMode);
   }, [darkOverlayMode]);
 
+  useEffect(() => {
+    localStorage.setItem('noiseEnabled', noiseEnabled.toString());
+  }, [noiseEnabled]);
+
   // 夜间模式偏好设置持久化
   useEffect(() => {
     localStorage.setItem('darkModePreference', darkModePreference);
@@ -536,6 +548,7 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     atmosphereWindEnabled,
     darkOverlayEnabled,
     darkOverlayMode,
+    noiseEnabled,
     darkMode,
     darkModePreference,
     darkModeScheduleStart,
@@ -572,6 +585,7 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     setAtmosphereWindEnabled,
     setDarkOverlayEnabled,
     setDarkOverlayMode,
+    setNoiseEnabled,
     setDarkModePreference,
     setDarkModeScheduleStart,
     setDarkModeScheduleEnd,
@@ -579,7 +593,7 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   }), [
     cardOpacity, searchBarOpacity, parallaxEnabled, wallpaperResolution, isSettingsOpen, isSearchFocused, cardColor, searchBarColor,
     autoSyncEnabled, autoSyncInterval, searchInNewTab, autoSortEnabled, timeComponentEnabled, showFullDate, showSeconds, showWeekday,
-    showYear, showMonth, showDay, dateDisplayMode, searchBarBorderRadius, animationStyle, workCountdownEnabled, lunchTime, offWorkTime, aiIconDisplayMode, atmosphereMode, atmosphereParticleCount, atmosphereWindEnabled, darkOverlayEnabled, darkOverlayMode, darkMode, darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, isSlowMotion
+    showYear, showMonth, showDay, dateDisplayMode, searchBarBorderRadius, animationStyle, workCountdownEnabled, lunchTime, offWorkTime, aiIconDisplayMode, atmosphereMode, atmosphereParticleCount, atmosphereWindEnabled, darkOverlayEnabled, darkOverlayMode, noiseEnabled, darkMode, darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, isSlowMotion
   ]);
 
   return (

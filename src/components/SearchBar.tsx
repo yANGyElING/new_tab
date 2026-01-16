@@ -1562,12 +1562,12 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                     }, 150);
                   }}
                   placeholder="搜点啥捏..."
-                  className="backdrop-blur-md border border-white/20 pl-4 py-2 text-white placeholder-white/60 outline-none text-base transition-all duration-200 pr-12 w-full rounded-lg"
+                  className="backdrop-blur-md border border-white/20 pl-4 py-2 text-white placeholder-white/60 outline-none text-base transition-all duration-200 pr-12 w-full"
                   style={{
                     backgroundColor: `rgba(${searchBarColor}, ${searchBarOpacity})`,
                     minWidth: '4rem',
                     maxWidth: '100%',
-                    borderRadius: `${searchBarBorderRadius}px`,
+                    borderRadius: '12px',
                   }}
                 />
 
@@ -1575,27 +1575,27 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                 <AnimatePresence>
                   {showSuggestions && (websiteSuggestions.length > 0 || workspaceSuggestions.length > 0 || suggestions.length > 0) && (
                     <motion.div
-                      className={`absolute top-full left-0 right-0 mt-2 backdrop-blur-md rounded-lg shadow-lg border border-white/20 z-30 overflow-y-auto custom-scrollbar ${isMobile ? 'max-h-72' : 'max-h-96'
+                      className={`absolute top-full left-0 right-0 mt-2 backdrop-blur-xl shadow-lg border border-white/10 z-30 overflow-y-auto custom-scrollbar ${isMobile ? 'max-h-72' : 'max-h-96'
                         }`}
-                      initial={{ opacity: 0, y: -10, scaleY: 0.8 }}
-                      animate={{ opacity: 1, y: 0, scaleY: 1 }}
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
                       exit={{
-                        scaleY: 0,
+                        opacity: 0,
+                        y: -8,
                         transition: {
-                          duration: 0.3,
+                          duration: 0.2,
                           ease: 'easeInOut',
                         },
                       }}
                       transition={{
-                        type: 'spring',
-                        stiffness: 280,
-                        damping: 6,
-                        mass: 0.5,
+                        duration: 0.25,
+                        ease: 'easeOut',
                       }}
                       style={{
                         pointerEvents: 'auto',
-                        backgroundColor: `rgba(255, 255, 255, 0.95)`,
+                        backgroundColor: 'rgba(255, 255, 255, 0.85)',
                         transformOrigin: 'top center',
+                        borderRadius: '12px',
                       }}
                       onMouseEnter={() => {
                         // 保持建议显示
@@ -1607,26 +1607,14 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                       {/* 网站建议部分 */}
                       {websiteSuggestions.length > 0 && (
                         <div className="border-b border-gray-200/50">
-                          <div
-                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} bg-gradient-to-r from-purple-50 to-violet-50 border-b border-purple-100`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <i className="fa-solid fa-globe text-purple-500 text-sm"></i>
-                              <span
-                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-purple-700`}
-                              >
-                                网站建议
-                              </span>
-                            </div>
-                          </div>
                           {websiteSuggestions.map((website, index) => {
                             const isSelected = index === selectedSuggestionIndex;
                             return (
                               <div
                                 key={website.id}
                                 className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} cursor-pointer transition-all duration-200 border-b border-gray-100/50 last:border-b-0 select-none ${isSelected
-                                  ? 'bg-gradient-to-r from-purple-500/10 to-violet-500/10 border-purple-200'
-                                  : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-purple-50'
+                                  ? 'bg-gray-100'
+                                  : 'hover:bg-gray-50'
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1640,15 +1628,22 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                 >
                                   {/* 网站图标 */}
                                   <div
-                                    className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg overflow-hidden bg-white shadow-sm border border-gray-200/50 flex-shrink-0`}
+                                    className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg overflow-hidden bg-white shadow-sm border border-gray-200/50 flex-shrink-0 flex items-center justify-center`}
                                   >
-                                    <img
-                                      src={processFaviconUrl(website.favicon, website.url, website.favicon)}
-                                      alt={website.name}
-                                      className="w-full h-full object-contain"
-                                      loading="lazy"
-                                      draggable="false"
-                                    />
+                                    {website.icon ? (
+                                      <i
+                                        className={`${website.icon} ${isMobile ? 'text-sm' : 'text-base'}`}
+                                        style={{ color: website.iconColor || '#FFFFFF' }}
+                                      />
+                                    ) : (
+                                      <img
+                                        src={processFaviconUrl(website.favicon, website.url, website.favicon)}
+                                        alt={website.name}
+                                        className="w-full h-full object-contain"
+                                        loading="lazy"
+                                        draggable="false"
+                                      />
+                                    )}
                                   </div>
 
                                   {/* 网站信息 */}
@@ -1726,8 +1721,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                   </div>
 
                                   {/* 快捷键提示 */}
-                                  <div className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded">
-                                    Enter
+                                  <div className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded flex items-center justify-center">
+                                    <i className="fa-solid fa-level-down-alt text-[10px]"></i>
                                   </div>
                                 </div>
                               </div>
@@ -1739,18 +1734,6 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                       {/* 工作空间建议部分 */}
                       {workspaceSuggestions.length > 0 && (
                         <div className="border-b border-gray-200/50">
-                          <div
-                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <i className="fa-solid fa-briefcase text-blue-500 text-sm"></i>
-                              <span
-                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-blue-700`}
-                              >
-                                工作空间建议
-                              </span>
-                            </div>
-                          </div>
                           {workspaceSuggestions.map((workspace, index) => {
                             const adjustedIndex = index + websiteSuggestions.length;
                             const isSelected = adjustedIndex === selectedSuggestionIndex;
@@ -1758,8 +1741,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                               <div
                                 key={workspace.id}
                                 className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} cursor-pointer transition-all duration-200 border-b border-gray-100/50 last:border-b-0 select-none ${isSelected
-                                  ? 'bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-200'
-                                  : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50'
+                                  ? 'bg-gray-100'
+                                  : 'hover:bg-gray-50'
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1844,8 +1827,8 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                   </div>
 
                                   {/* 快捷键提示 */}
-                                  <div className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                                    Enter
+                                  <div className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded flex items-center justify-center">
+                                    <i className="fa-solid fa-level-down-alt text-[10px]"></i>
                                   </div>
                                 </div>
                               </div>
@@ -1857,18 +1840,6 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                       {/* 搜索引擎建议部分 */}
                       {suggestions.length > 0 && (
                         <div className="border-b border-gray-200/50 last:border-b-0">
-                          <div
-                            className={`${isMobile ? 'px-3 py-1.5' : 'px-4 py-2'} bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <i className="fa-solid fa-magnifying-glass text-emerald-500 text-sm"></i>
-                              <span
-                                className={`${isMobile ? 'text-xs' : 'text-sm'} font-medium text-emerald-700`}
-                              >
-                                搜索建议
-                              </span>
-                            </div>
-                          </div>
                           {suggestions.map((suggestion, index) => {
                             const adjustedIndex = index + websiteSuggestions.length + workspaceSuggestions.length;
                             const isSelected = adjustedIndex === selectedSuggestionIndex;
@@ -1882,40 +1853,10 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                               <div
                                 key={suggestion.id}
                                 className={`${isMobile ? 'px-3 py-2' : 'px-4 py-3'} ${isHint ? 'cursor-default' : 'cursor-pointer'} transition-all duration-200 border-b border-gray-100/50 last:border-b-0 select-none ${isSelected
-                                  ? isTodoAction && !isHint
-                                    ? isAdd
-                                      ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-200'
-                                      : 'bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border-blue-200'
-                                    : isSettingsAction
-                                      ? 'bg-gradient-to-r from-purple-500/10 to-violet-500/10 border-purple-200'
-                                      : (suggestion as any).isHelpAction
-                                        ? 'bg-gradient-to-r from-teal-500/10 to-cyan-500/10 border-teal-200'
-                                        : (suggestion as any).isDeveloperAction
-                                          ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-200'
-                                          : (suggestion as any).isWorkspaceAction
-                                            ? 'bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-orange-200'
-                                            : isHint
-                                              ? 'bg-gray-100/50 text-gray-600'
-                                              : isDirectVisit
-                                                ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-200'
-                                                : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-emerald-200'
-                                  : isTodoAction && !isHint
-                                    ? isAdd
-                                      ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-green-50'
-                                      : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-blue-50'
-                                    : isSettingsAction
-                                      ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-purple-50'
-                                      : (suggestion as any).isHelpAction
-                                        ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-teal-50'
-                                        : (suggestion as any).isDeveloperAction
-                                          ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-indigo-50'
-                                          : (suggestion as any).isWorkspaceAction
-                                            ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-orange-50'
-                                            : isHint
-                                              ? 'bg-gray-50/50 text-gray-600'
-                                              : isDirectVisit
-                                                ? 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-green-50'
-                                                : 'hover:bg-gradient-to-r hover:from-gray-50 hover:to-emerald-50'
+                                  ? 'bg-gray-100'
+                                  : isHint
+                                    ? 'bg-gray-50/50'
+                                    : 'hover:bg-gray-50'
                                   }`}
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2052,24 +1993,16 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                                     )}
                                   </div>
                                   <div
-                                    className={`text-xs px-2 py-1 rounded ${(suggestion as any).isTodoAction && !isHint
-                                      ? isAdd
-                                        ? 'text-green-600 bg-green-100'
-                                        : 'text-blue-600 bg-blue-100'
-                                      : (suggestion as any).isSettingsAction
-                                        ? 'text-purple-600 bg-purple-100'
-                                        : (suggestion as any).isHelpAction
-                                          ? 'text-teal-600 bg-teal-100'
-                                          : (suggestion as any).isDeveloperAction
-                                            ? 'text-indigo-600 bg-indigo-100'
-                                            : isHint
-                                              ? 'text-gray-500 bg-gray-200'
-                                              : isDirectVisit
-                                                ? 'text-green-600 bg-green-100'
-                                                : 'text-gray-400 bg-gray-100'
+                                    className={`text-xs px-2 py-1 rounded flex items-center justify-center ${isHint
+                                      ? 'text-gray-500 bg-gray-200'
+                                      : 'text-gray-400 bg-gray-100'
                                       }`}
                                   >
-                                    {isHint ? '输入...' : 'Enter'}
+                                    {isHint ? (
+                                      <span>输入...</span>
+                                    ) : (
+                                      <i className="fa-solid fa-level-down-alt text-[10px]"></i>
+                                    )}
                                   </div>
                                 </div>
                               </div>

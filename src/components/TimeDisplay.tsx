@@ -152,7 +152,7 @@ export function TimeDisplay() {
           <div
             className="text-white tracking-wide mb-1 drop-shadow-sm cursor-pointer transition-all duration-200 hover:scale-105 pointer-events-auto time-display-clickable select-none"
             style={{
-              fontSize: isMobile ? '2em' : '4em',
+              fontSize: isMobile ? '1.5em' : '3em',
               fontWeight: 400,
               fontFamily: '-apple-system, system-ui, Ubuntu, Roboto, "Open Sans", "Segoe UI", "Helvetica Neue"'
             }}

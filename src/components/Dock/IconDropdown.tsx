@@ -85,7 +85,8 @@ export const IconDropdown = memo(function IconDropdown({
         />
       );
     }
-    return <i className="fa-solid fa-icons text-white/30 text-lg" />;
+    // Default icon with better contrast for both light/dark modes
+    return <i className={`fa-solid fa-icons text-lg ${isDark ? 'text-white/50' : 'text-gray-500'}`} />;
   };
 
   // Theme styles
@@ -115,7 +116,7 @@ export const IconDropdown = memo(function IconDropdown({
           className={`w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all ${
             isOpen ? 'ring-2 ring-blue-400' : 'group-hover:ring-2 group-hover:ring-blue-400/50'
           }`}
-          style={{ backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)' }}
+          style={{ backgroundColor: isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(75, 85, 99, 0.25)' }}
         >
           {renderPreviewIcon()}
         </div>

@@ -276,7 +276,7 @@ export const DockEditModal = memo(function DockEditModal({
                       : `${darkMode ? 'text-white/50 hover:text-white/70' : 'text-gray-400 hover:text-gray-600'}`
                   }`}
                 >
-                  <i className="fa-solid fa-grip-lines mr-1" />
+                  <i className="fa-solid fa-ellipsis mr-1" />
                   Dock
                 </button>
                 <button

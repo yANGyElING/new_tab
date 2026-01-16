@@ -40,7 +40,9 @@
       "mcp__exa__get_code_context_exa",
       "Bash(git add src/lib/optimizedWallpaperService.ts src/lib/customWallpaperManager.ts)",
       "Bash(git commit -F .git/COMMIT_EDITMSG)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "mcp__fetch__fetch",
+      "Skill(commit)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

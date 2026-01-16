@@ -164,8 +164,8 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [showUserStatsModal, setShowUserStatsModal] = useState(false);
 
-  // 记录上一次选择的必应壁纸分辨率，用于切换回必应模式时恢复
-  const [lastBingResolution, setLastBingResolution] = useState<WallpaperResolution>('1080p');
+  // 记录上一次选择的每日壁纸分辨率，用于切换回每日壁纸模式时恢复
+  const [lastDailyResolution, setLastDailyResolution] = useState<WallpaperResolution>('1080p');
 
   // 使用统一的数据管理Hook
   const { exportAllData, importAllData, isExporting, isImporting } = useDataManager(
@@ -228,6 +228,8 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     setAtmosphereWindEnabled,
     darkOverlayMode,
     setDarkOverlayMode,
+    noiseEnabled,
+    setNoiseEnabled,
     darkMode,
     darkModePreference,
     setDarkModePreference,
@@ -246,7 +248,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
   // 记录非自定义模式下的分辨率选择
   useEffect(() => {
     if (wallpaperResolution !== 'custom') {
-      setLastBingResolution(wallpaperResolution);
+      setLastDailyResolution(wallpaperResolution);
     }
   }, [wallpaperResolution]);
 
@@ -1338,6 +1340,35 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                     </button>
                   </div>
                 </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 壁纸噪点效果开关 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <i className="fa-solid fa-grain text-gray-600 text-sm"></i>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                        噪点纹理
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                      为壁纸添加细微噪点纹理，提升质感
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setNoiseEnabled(!noiseEnabled)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${noiseEnabled
+                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600'
+                      : 'bg-gray-200 dark:bg-gray-600'
+                      }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${noiseEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
             <div id="wallpaper" ref={(el) => (sectionsRef.current['wallpaper'] = el)} className="space-y-5 select-none settings-section scroll-mt-6">
@@ -1354,7 +1385,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                 {/* 模式切换 Tab */}
                 <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-xl select-none relative">
                   <button
-                    onClick={() => setWallpaperResolution(lastBingResolution)}
+                    onClick={() => setWallpaperResolution(lastDailyResolution)}
                     className={`relative flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 ${wallpaperResolution !== 'custom'
                       ? 'text-pink-600 dark:text-pink-400'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
@@ -1369,7 +1400,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                     )}
                     <span className="relative z-10 flex items-center gap-2">
                       <i className="fa-solid fa-image"></i>
-                      每日必应
+                      每日壁纸
                     </span>
                   </button>
                   <button
@@ -1396,7 +1427,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                 {/* 内容区域 */}
                 <div className="min-h-[180px]">
                   {wallpaperResolution !== 'custom' ? (
-                    /* 必应壁纸分辨率选择 */
+                    /* 每日壁纸分辨率选择 */
                     <div className="space-y-4 animate-fadeIn">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">

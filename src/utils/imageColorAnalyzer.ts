@@ -48,7 +48,7 @@ function saveColorCache(cache: ColorCache): void {
 
 /**
  * 生成缓存键
- * - Bing 壁纸：使用日期作为键
+ * - Unsplash 壁纸：使用日期作为键
  * - 自定义壁纸：使用壁纸 ID 作为键
  */
 export function generateCacheKey(wallpaperId?: string): string {
@@ -57,10 +57,10 @@ export function generateCacheKey(wallpaperId?: string): string {
         return `custom:${wallpaperId}`;
     }
 
-    // 对于 Bing 壁纸，使用当天日期作为键
+    // 对于 Unsplash 每日壁纸，使用当天日期作为键
     const today = new Date();
     const dateKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    return `bing:${dateKey}`;
+    return `unsplash:${dateKey}`;
 }
 
 /**

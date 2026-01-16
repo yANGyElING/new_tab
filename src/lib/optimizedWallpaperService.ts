@@ -1,5 +1,5 @@
-// 优化的壁纸服务 - 解决白屏问题，提升加载体验
-// 使用浏览器原生 Blob API 处理图片数据
+// Optimized Wallpaper Service - Unsplash Integration via Bonjourr API
+// Uses browser-native Blob API for image handling
 import { indexedDBCache } from './indexedDBCache';
 import { logger } from './logger';
 import { errorHandler } from './errorHandler';
@@ -8,6 +8,9 @@ import { createWallpaperRequest } from './requestManager';
 import { createTimeoutSignal } from './abortUtils';
 import { customWallpaperManager } from './customWallpaperManager';
 import { getLocalDateString } from './dateUtils';
+
+// Bonjourr public API for Unsplash (no API key required)
+const BONJOURR_API_BASE = 'https://api.bonjourr.fr';
 
 // 重试相关配置 - 指数退避策略
 const RETRY_DELAYS_MS = [30 * 1000, 60 * 1000, 120 * 1000, 240 * 1000]; // 30s, 60s, 120s, 240s
@@ -233,34 +236,100 @@ class OptimizedWallpaperService {
     return `wallpaper-optimized:${resolution}-${this.getLocalDateString(yesterday)}`;
   }
 
-  // 移除未使用的方法
+  // Resolution mapping for different wallpaper sizes
+  private readonly resolutionMap = {
+    '4k': { width: 3840, height: 2160, orientation: 'landscape' as const },
+    '1080p': { width: 1920, height: 1080, orientation: 'landscape' as const },
+    '720p': { width: 1366, height: 768, orientation: 'landscape' as const },
+    mobile: { width: 1080, height: 1920, orientation: 'portrait' as const },
+  };
 
-  // 获取 Lorem Picsum 壁纸URL（无需 API Key）
+  // Get cached Unsplash URL key for today
+  private getUnsplashUrlCacheKey(resolution: string): string {
+    const today = this.getLocalDateString();
+    const counterKey = `wallpaper-next-counter-${resolution}-${today}`;
+    const counter = localStorage.getItem(counterKey) || '0';
+    return `unsplash-url-cache:${resolution}-${today}-${counter}`;
+  }
+
+  // Fetch random photo from Unsplash via Bonjourr public API (no API key required)
+  private async fetchUnsplashRandomPhoto(orientation: 'landscape' | 'portrait'): Promise<{
+    rawUrl: string;
+    photographerName: string;
+    photographerUrl: string;
+  } | null> {
+    try {
+      const params = new URLSearchParams({ orientation });
+
+      const response = await fetch(`${BONJOURR_API_BASE}/unsplash/photos/random?${params}`, {
+        signal: createTimeoutSignal(15000),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.wallpaper.error('Bonjourr API error', { status: response.status, error: errorText });
+        return null;
+      }
+
+      const data = await response.json();
+
+      return {
+        rawUrl: data.urls.raw,
+        photographerName: data.user?.name || 'Unknown',
+        photographerUrl: data.user?.links?.html || 'https://unsplash.com',
+      };
+    } catch (error) {
+      logger.wallpaper.error('Failed to fetch from Bonjourr API', error);
+      return null;
+    }
+  }
+
+  // Get Unsplash wallpaper URL with specified resolution
   private async getWallpaperUrl(resolution: string): Promise<string> {
     try {
-      const resolutionMap = {
-        '4k': { width: 3840, height: 2160 },
-        '1080p': { width: 1920, height: 1080 },
-        '720p': { width: 1366, height: 768 },
-        mobile: { width: 1080, height: 1920 },
-      };
+      const { width, height, orientation } = this.resolutionMap[resolution as keyof typeof this.resolutionMap]
+        || { width: 1920, height: 1080, orientation: 'landscape' as const };
 
-      const { width, height } = resolutionMap[resolution as keyof typeof resolutionMap] || { width: 1920, height: 1080 };
+      // Check for cached URL first (to avoid hitting API rate limits)
+      const cacheKey = this.getUnsplashUrlCacheKey(resolution);
+      const cachedUrl = localStorage.getItem(cacheKey);
 
-      // Lorem Picsum API - 使用随机 ID 而不是 seed
-      // 根据日期生成一个 1-1000 之间的随机 ID
-      const today = this.getLocalDateString();
-      const dateNumber = parseInt(today.replace(/-/g, ''), 10);
-      const imageId = (dateNumber % 1000) + 1; // 1-1000
+      if (cachedUrl) {
+        logger.wallpaper.info('Using cached Unsplash URL', { resolution, cacheKey });
+        return cachedUrl;
+      }
 
-      // 使用 /id/ 端点，避免重定向导致的 CORS 问题
-      const url = `https://picsum.photos/id/${imageId}/${width}/${height}`;
+      // Fetch new random photo from Unsplash
+      const photoData = await this.fetchUnsplashRandomPhoto(orientation);
 
-      logger.wallpaper.info('生成 Lorem Picsum 壁纸 URL', { resolution, url, imageId });
+      if (!photoData) {
+        logger.wallpaper.warn('Unsplash API unavailable, using fallback');
+        return this.fallbackImage;
+      }
 
-      return url;
+      // Construct URL with Imgix parameters for specific resolution
+      // Keep ixid parameter for Unsplash tracking
+      const unsplashUrl = `${photoData.rawUrl}&w=${width}&h=${height}&fit=crop&q=80&auto=format`;
+
+      // Cache the URL to avoid repeated API calls
+      localStorage.setItem(cacheKey, unsplashUrl);
+
+      // Also cache photographer info for attribution (optional feature)
+      localStorage.setItem(`${cacheKey}-photographer`, JSON.stringify({
+        name: photoData.photographerName,
+        url: photoData.photographerUrl,
+      }));
+
+      logger.wallpaper.info('Generated Unsplash wallpaper URL', {
+        resolution,
+        width,
+        height,
+        photographer: photoData.photographerName,
+      });
+
+      return unsplashUrl;
     } catch (error) {
-      logger.wallpaper.warn('Lorem Picsum 壁纸服务访问失败', error);
+      logger.wallpaper.warn('Failed to get Unsplash wallpaper URL', error);
       return this.fallbackImage;
     }
   }
@@ -355,10 +424,19 @@ class OptimizedWallpaperService {
     try {
       logger.wallpaper.info('开始下载壁纸', { url: url.substring(0, 50) });
 
-      // Picsum Photos 直接返回图片，无需代理，原生支持 CORS
+      // 根据分辨率动态设置超时时间（4K图片较大，需要更长时间）
+      const timeoutMap: Record<string, number> = {
+        '4k': 60000,      // 4K: 60秒
+        '1080p': 30000,   // 1080p: 30秒
+        '720p': 20000,    // 720p: 20秒
+        'mobile': 30000,  // mobile: 30秒
+      };
+      const timeout = timeoutMap[resolution] || 30000;
+
+      // Unsplash images support CORS natively
       const imageResponse = await createWallpaperRequest(url, {
         mode: 'cors',
-        signal: createTimeoutSignal(15000), // 15秒超时
+        signal: createTimeoutSignal(timeout),
       });
 
       // 检查图片响应
@@ -368,11 +446,11 @@ class OptimizedWallpaperService {
 
       const contentType = imageResponse.headers.get('Content-Type') || '';
       if (!contentType.includes('image/')) {
-        logger.wallpaper.error('Picsum 返回非图片响应', {
+        logger.wallpaper.error('Unsplash 返回非图片响应', {
           status: imageResponse.status,
           contentType,
         });
-        throw new Error(`Picsum 返回了无效的响应: ${contentType}`);
+        throw new Error(`Unsplash 返回了无效的响应: ${contentType}`);
       }
 
       const blob = await imageResponse.blob();
@@ -583,7 +661,7 @@ class OptimizedWallpaperService {
       try {
         const downloaded = await this.downloadAndCache(wallpaperUrl, resolution);
 
-        // 🔧 修复: 只有真正的 Bing 壁纸才标记成功，fallback 则安排重试
+        // 🔧 修复: 只有真正的 Unsplash 壁纸才标记成功，fallback 则安排重试
         if (!downloaded.isFallback) {
           this.markUpdateSuccess(resolution);
 
@@ -648,7 +726,7 @@ class OptimizedWallpaperService {
       if (wallpaperUrl !== this.fallbackImage) {
         const result = await this.downloadAndCache(wallpaperUrl, resolution);
 
-        // 🔧 修复: 只有真正的 Bing 壁纸才标记成功
+        // 🔧 修复: 只有真正的 Unsplash 壁纸才标记成功
         // Fallback 壁纸不设置成功标记，允许后续重试获取真正的壁纸
         if (result.blobUrl && !result.isFallback) {
           this.markUpdateSuccess(resolution);

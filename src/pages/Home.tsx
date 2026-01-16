@@ -23,8 +23,11 @@ import LeafEffect from '@/components/effects/LeafEffect';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import AnnouncementCenter from '@/components/AnnouncementCenter';
 import { Dock } from '@/components/Dock';
+import { ContextMenu, type ContextMenuItem } from '@/components/ContextMenu';
 import { isWinterSeason, isAutumnSeason } from '@/utils/solarTerms';
 import { shouldApplyOverlay, clearAllColorCache } from '@/utils/imageColorAnalyzer';
+import { indexedDBCache } from '@/lib/indexedDBCache';
+import { getLocalDateString } from '@/lib/dateUtils';
 
 // 暴露给控制台调试用
 if (typeof window !== 'undefined') {
@@ -48,6 +51,7 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     atmosphereParticleCount,
     atmosphereWindEnabled,
     darkOverlayMode,
+    noiseEnabled,
     isSlowMotion,
     setIsSlowMotion,
   } = useTransparency();
@@ -75,23 +79,138 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
   const [isFavorited, setIsFavorited] = useState(false);
   const [isAlreadyFavorited, setIsAlreadyFavorited] = useState(false);
   const [smartOverlayNeeded, setSmartOverlayNeeded] = useState(false); // 智能模式下是否需要遮罩
+  const [pageContextMenu, setPageContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [wallpaperReloadNonce, setWallpaperReloadNonce] = useState(0);
 
-  // 阻止空白区域右键菜单
+  const WALLPAPER_LOCK_KEY = 'locked-wallpaper';
+
+  const handleDownloadBackground = useCallback(async () => {
+    try {
+      const url = bgImage || bgOriginalUrl;
+      if (!url) return;
+
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('下载失败');
+      const blob = await response.blob();
+
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = `background-${getLocalDateString()}-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      logger.warn('下载背景失败:', e);
+    }
+  }, [bgImage, bgOriginalUrl]);
+
+  const handleLockBackground = useCallback(() => {
+    const lockInfo = {
+      resolution: wallpaperResolution,
+      date: getLocalDateString(),
+    };
+    localStorage.setItem(WALLPAPER_LOCK_KEY, JSON.stringify(lockInfo));
+  }, [wallpaperResolution]);
+
+  const handleNextBackground = useCallback(async () => {
+    try {
+      const today = getLocalDateString();
+
+      // 增加"下一张"计数器，确保每次获取不同的图片
+      const counterKey = `wallpaper-next-counter-${wallpaperResolution}-${today}`;
+      const currentCounter = parseInt(localStorage.getItem(counterKey) || '0', 10);
+      localStorage.setItem(counterKey, (currentCounter + 1).toString());
+
+      // 清理今天的缓存和更新标记
+      localStorage.removeItem(`wallpaper-update-success-${wallpaperResolution}`);
+      await optimizedWallpaperService.clearTodayCache(wallpaperResolution);
+
+      // 如果已锁定，则更新锁定日期和计数器（锁定"下一张"的结果）
+      const raw = localStorage.getItem(WALLPAPER_LOCK_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.resolution === wallpaperResolution) {
+          localStorage.setItem(
+            WALLPAPER_LOCK_KEY,
+            JSON.stringify({
+              resolution: wallpaperResolution,
+              date: today,
+              counter: currentCounter + 1
+            })
+          );
+        }
+      }
+    } catch (e) {
+      logger.warn('切换下一个背景失败:', e);
+    } finally {
+      setWallpaperReloadNonce(Date.now());
+    }
+  }, [wallpaperResolution]);
+
+  const pageContextMenuItems: ContextMenuItem[] = [
+    {
+      icon: 'fa-regular fa-image',
+      label: '编辑背景设置',
+      onClick: () => setShowSettings(true),
+    },
+    {
+      icon: 'fa-solid fa-link',
+      label: '添加新快速链接',
+      onClick: () => setShowAddCardModal(true),
+      separatorAfter: true,
+    },
+    {
+      icon: 'fa-solid fa-download',
+      label: '下载背景',
+      onClick: () => void handleDownloadBackground(),
+    },
+    {
+      icon: 'fa-solid fa-lock',
+      label: '锁定当前背景',
+      onClick: handleLockBackground,
+    },
+    {
+      icon: 'fa-solid fa-arrow-rotate-right',
+      label: '下一个背景',
+      onClick: () => void handleNextBackground(),
+    },
+  ];
+
+  // 空白区域右键菜单
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
-      // 检查是否点击在卡片上（卡片内部会处理自己的右键菜单）
       const target = e.target as HTMLElement;
-      const isOnCard = target.closest('[data-website-card]');
 
-      // 如果不是在卡片上，阻止默认右键菜单
-      if (!isOnCard) {
-        e.preventDefault();
+      // 卡片内部会处理自己的右键菜单
+      const isOnCard = !!target.closest('[data-website-card]');
+      if (isOnCard) {
+        setPageContextMenu(null);
+        return;
       }
+
+      // 交互元素（输入框/按钮等）保留系统右键菜单
+      const isInteractiveElement =
+        target.closest('button') ||
+        target.closest('input') ||
+        target.closest('textarea') ||
+        target.closest('a') ||
+        target.closest('[role="button"]') ||
+        target.closest('[data-interactive]');
+
+      if (isInteractiveElement) {
+        setPageContextMenu(null);
+        return;
+      }
+
+      e.preventDefault();
+      setPageContextMenu({ x: e.clientX, y: e.clientY });
     };
 
-    document.addEventListener('contextmenu', handleContextMenu);
+    document.addEventListener('contextmenu', handleContextMenu, true);
     return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
+      document.removeEventListener('contextmenu', handleContextMenu, true);
     };
   }, []);
 
@@ -248,6 +367,52 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
       try {
         logger.debug('🖼️ 开始加载壁纸，分辨率:', wallpaperResolution);
 
+        // 如果锁定了背景，则优先从缓存中读取锁定日期的壁纸
+        try {
+          const raw = localStorage.getItem(WALLPAPER_LOCK_KEY);
+          if (raw) {
+            const lockInfo = JSON.parse(raw) as { resolution?: string; date?: string };
+            if (lockInfo?.resolution === wallpaperResolution && lockInfo?.date) {
+              const cacheKey = `wallpaper-optimized:${wallpaperResolution}-${lockInfo.date}`;
+              const cachedBlob = await indexedDBCache.get(cacheKey);
+              if (cachedBlob instanceof Blob) {
+                const metadata = await indexedDBCache.get(`${cacheKey}-metadata`);
+                const originalUrl =
+                  metadata && typeof metadata === 'object' && 'originalUrl' in metadata
+                    ? (metadata as any).originalUrl
+                    : undefined;
+
+                setWallpaperLoaded(false);
+                const blobUrl = URL.createObjectURL(cachedBlob);
+                const img = new Image();
+                img.onload = async () => {
+                  setBgImage(blobUrl);
+                  setBgOriginalUrl(originalUrl);
+                  if (darkOverlayMode === 'smart') {
+                    try {
+                      const wallpaperId = wallpaperResolution === 'custom' ? 'current-custom' : undefined;
+                      const needsOverlay = await shouldApplyOverlay(blobUrl, wallpaperId);
+                      setSmartOverlayNeeded(needsOverlay);
+                    } catch {
+                      setSmartOverlayNeeded(false);
+                    }
+                  }
+                  requestAnimationFrame(() => setWallpaperLoaded(true));
+                };
+                img.onerror = () => {
+                  setBgImage(blobUrl);
+                  setBgOriginalUrl(originalUrl);
+                  setWallpaperLoaded(true);
+                };
+                img.src = blobUrl;
+                return;
+              }
+            }
+          }
+        } catch (e) {
+          logger.warn('读取锁定背景缓存失败，降级为常规加载:', e);
+        }
+
         // 调用壁纸服务获取壁纸（日期检测和缓存逻辑在服务中统一处理）
         const result = await optimizedWallpaperService.getWallpaper(wallpaperResolution);
 
@@ -269,7 +434,7 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
             // 智能遮罩模式：分析壁纸颜色（在图片加载完成后进行）
             if (darkOverlayMode === 'smart') {
               try {
-                // 自定义壁纸传递 ID，Bing 壁纸不传（使用日期作为缓存键）
+                // 自定义壁纸传递 ID，Unsplash 壁纸不传（使用日期作为缓存键）
                 const wallpaperId = wallpaperResolution === 'custom' ? 'current-custom' : undefined;
                 const needsOverlay = await shouldApplyOverlay(result.url, wallpaperId);
                 setSmartOverlayNeeded(needsOverlay);
@@ -312,7 +477,7 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
     };
 
     loadWallpaper();
-  }, [wallpaperResolution]); // 分辨率变化时重新加载
+  }, [wallpaperResolution, wallpaperReloadNonce]); // 分辨率变化或手动刷新时重新加载
 
   // 智能遮罩模式切换时重新检测颜色
   useEffect(() => {
@@ -486,22 +651,42 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
 
 
 
-      {/* 壁纸背景层 - 响应式优化 */}
+      {/* 壁纸背景容器 - 包含壁纸和噪点层，使用isolation创建独立堆叠上下文 */}
       <div
         className="fixed top-0 left-0 w-full h-full -z-10"
-        style={{
-          backgroundImage: bgImage ? `url(${bgImage})` : undefined,
-          backgroundSize: 'cover',
-          backgroundPosition: isMobile ? 'center center' : 'center top',
-          backgroundRepeat: 'no-repeat',
-          opacity: wallpaperLoaded ? 1 : 0,
-          transform:
-            !isSettingsOpen && !isSearchFocused && parallaxEnabled && !isMobile && mousePosition
-              ? `translate(${mousePosition.x * 0.02}px, ${mousePosition.y * 0.02}px) scale(1.05)`
-              : 'translate(0px, 0px) scale(1)',
-          transition: 'opacity 0.5s ease-out, transform 0.3s ease-out',
-        }}
-      />
+        style={{ isolation: 'isolate' }}
+      >
+        {/* 壁纸背景层 */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: bgImage ? `url(${bgImage})` : undefined,
+            backgroundSize: 'cover',
+            backgroundPosition: isMobile ? 'center center' : 'center top',
+            backgroundRepeat: 'no-repeat',
+            opacity: wallpaperLoaded ? 1 : 0,
+            transform:
+              !isSettingsOpen && !isSearchFocused && parallaxEnabled && !isMobile && mousePosition
+                ? `translate(${mousePosition.x * 0.008}px, ${mousePosition.y * 0.008}px) scale(1.02)`
+                : 'translate(0px, 0px) scale(1)',
+            transition: 'opacity 0.5s ease-out, transform 0.3s ease-out',
+          }}
+        />
+
+        {/* 壁纸噪点覆盖层 - 使用Bonjourr风格的grain.png纹理 */}
+        {bgImage && noiseEnabled && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: `url("/grain.png")`,
+              backgroundRepeat: 'repeat',
+              backgroundSize: '200px',
+              opacity: 0.4,
+              mixBlendMode: 'overlay',
+            }}
+          />
+        )}
+      </div>
 
 
 
@@ -721,6 +906,16 @@ export default function Home({ websites, setWebsites, dataInitialized = true }: 
 
         {/* 动画猫 - 仅在非移动端显示 */}
         {!isMobile && <AnimatedCat />}
+
+        {/* 页面空白处右键菜单 */}
+        {pageContextMenu && (
+          <ContextMenu
+            x={pageContextMenu.x}
+            y={pageContextMenu.y}
+            items={pageContextMenuItems}
+            onClose={() => setPageContextMenu(null)}
+          />
+        )}
 
         {/* 工作空间模态框 */}
         <LazyWorkspaceModal isOpen={isWorkspaceOpen} onClose={() => setIsWorkspaceOpen(false)} />

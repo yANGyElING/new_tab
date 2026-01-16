@@ -66,15 +66,18 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
   onAddCard,
 }: WebsiteCardProps) {
   const [showEditModal, setShowEditModal] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [, setClickAnimation] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [imgError, setImgError] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const { cardOpacity, cardColor, autoSortEnabled, searchInNewTab } = useTransparency();
+  const { autoSortEnabled, searchInNewTab } = useTransparency();
   const { faviconUrl, isLoading, error } = useLazyFavicon(url, favicon, cardRef);
   const { isMobile, getCardClasses } = useResponsiveLayout();
-  const cardBorderRadius = isMobile ? 20 : 24;
+  const cardBorderRadius = isMobile ? 12 : 16;
+
+  // 判断是否显示错误占位
+  const showErrorPlaceholder = !icon && (error || imgError || !faviconUrl);
 
   const subtitleText = useMemo(() => {
     if (note) return note;
@@ -173,19 +176,6 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
     };
   }, []);
 
-  // 处理卡片悬停效果（简化版）
-  const handleMouseEnter = useCallback(() => {
-    if (!isMobile && !isDragging) {
-      setIsHovered(true);
-    }
-  }, [isMobile, isDragging]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (!isMobile) {
-      setIsHovered(false);
-    }
-  }, [isMobile]);
-
   // 处理卡片点击动画
   const handleCardClick = useCallback(() => {
     if (isMobile) {
@@ -273,174 +263,212 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
 
   return (
     <>
-      {/* 使用Tilt组件实现3D效果 */}
-      <Tilt
-        tiltEnable={!isMobile && !isDragging && !autoSortEnabled}
-        tiltReverse={true} // 反转倾斜方向（按下效果）
-        tiltMaxAngleX={25} // 增加X轴倾斜角度
-        tiltMaxAngleY={25} // 增加Y轴倾斜角度
-        perspective={1000}
-        transitionSpeed={1000}
-        scale={1.02}
-        glareEnable={!isMobile && !autoSortEnabled}
-        glareMaxOpacity={0.3}
-        glareColor="lightblue"
-        glarePosition="all"
+      {/* 外层 motion.div 处理拖拽动画 */}
+      <motion.div
+        data-website-card="true"
+        className={`${getCardClasses()} relative`}
+        style={{
+          aspectRatio: '1 / 1',
+        }}
+        animate={{
+          opacity: isDragging ? 0.5 : 1,
+          zIndex: isDragging ? 50 : 0,
+          rotate: isDragging ? 5 : 0,
+          scale: isDragging ? 1.05 : 1,
+        }}
+        transition={{
+          type: 'spring',
+          stiffness: 200,
+          damping: 15,
+          duration: 0.2,
+        }}
+        onTouchStart={startLongPress}
+        onTouchEnd={clearLongPress}
+        onTouchMove={clearLongPress}
+        onTouchCancel={clearLongPress}
+        onClick={handleCardClick}
+        onContextMenu={handleContextMenu}
+        whileTap={{
+          scale: 0.95,
+          filter: 'brightness(0.85)',
+          transition: { duration: 0.1, ease: 'easeInOut' },
+        }}
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{
+          opacity: 1,
+          y: 0,
+          transition: {
+            duration: 0.4,
+            ease: 'easeOut',
+            delay: 0.05,
+          },
+        }}
+        viewport={{ once: true }}
+        ref={cardRef}
       >
-        {/* 简化的卡片容器 - 保留圆角 */}
-        <motion.div
-          data-website-card="true"
-          className={`${getCardClasses()} relative`}
-          style={{
-            backgroundColor: `rgba(${cardColor}, ${cardOpacity})`,
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            borderRadius: cardBorderRadius,
-            boxShadow: isDragging ? '0 20px 40px rgba(0,0,0,0.3)' : 'none', // 拖拽时添加阴影
-          }}
-          animate={{
-            opacity: isDragging ? 0.5 : 1,
-            zIndex: isDragging ? 50 : 0,
-            rotate: isDragging ? 5 : 0, // 拖拽时轻微旋转
-            scale: isDragging ? 1.05 : 1, // 拖拽时轻微放大
-          }}
-          transition={{
-            type: 'spring',
-            stiffness: 200,
-            damping: 15,
-            duration: 0.2,
-          }}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onTouchStart={startLongPress}
-          onTouchEnd={clearLongPress}
-          onTouchMove={clearLongPress}
-          onTouchCancel={clearLongPress}
-          onClick={handleCardClick}
-          onContextMenu={handleContextMenu}
-          whileTap={{
-            scale: 0.95,
-            filter: 'brightness(0.85)',
-            transition: { duration: 0.1, ease: 'easeInOut' },
-          }}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{
-            opacity: 1,
-            y: 0,
-            transition: {
-              duration: 0.4,
-              ease: 'easeOut',
-              delay: 0.05,
-            },
-          }}
-          viewport={{ once: true }}
-          ref={cardRef}
+        {/* 内层 Tilt 组件实现3D效果 */}
+        <Tilt
+          tiltEnable={!isMobile && !isDragging && !autoSortEnabled}
+          tiltReverse={true}
+          tiltMaxAngleX={12}
+          tiltMaxAngleY={12}
+          perspective={800}
+          transitionSpeed={400}
+          scale={1.02}
+          glareEnable={false}
+          className="w-full h-full"
+          style={{ borderRadius: `${cardBorderRadius / 16}rem` }}
         >
-          {/* 设置按钮 - 移动端隐藏，通过长按进入编辑 */}
-          {!isMobile && (
-            <div className={`absolute bottom-0.5 right-0.5 z-10`}>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowEditModal(true);
-                }}
-                className={`p-1 text-white/50 hover:text-white select-none transition-all duration-500 ease-out ${isHovered ? 'opacity-100' : 'opacity-0'}`}
-              >
-                <i className="fa-solid fa-gear text-xs select-none"></i>
-              </button>
-            </div>
-          )}
-
-          <div className={`h-full flex flex-col ${isMobile ? 'pt-1.5 pb-1' : 'pt-3'} select-none`}>
-            {/* 网站图标和名称区域 */}
-            <div className={`flex flex-col items-center ${isMobile ? 'px-0.5' : 'px-2'} select-none`}>
-              <div
-                className={`${isMobile ? 'w-7 h-7' : 'w-11 h-11 mb-1'} rounded-md overflow-hidden select-none relative flex items-center justify-center`}
-                style={icon ? { backgroundColor: 'rgba(255,255,255,0.1)' } : undefined}
-              >
-                {icon ? (
-                  // Built-in icon
-                  <i
-                    className={`${icon} ${isMobile ? 'text-base' : 'text-2xl'}`}
-                    style={{ color: iconColor || '#FFFFFF' }}
-                  />
-                ) : (
-                  // Favicon
-                  <img
-                    src={faviconUrl}
-                    alt={`${name} favicon`}
-                    className="w-full h-full object-contain select-none"
-                    loading="lazy"
-                    draggable="false"
-                  />
-                )}
-                {/* 状态指示器 */}
-                {!icon && isLoading && (
-                  <div
-                    className={`absolute top-0 right-0 ${isMobile ? 'w-1.5 h-1.5' : 'w-2 h-2'} bg-yellow-400 rounded-full animate-pulse`}
-                    title="加载中..."
-                  ></div>
-                )}
-                {!icon && !isLoading && error && (
-                  <div
-                    className={`absolute top-0 right-0 ${isMobile ? 'w-1.5 h-1.5' : 'w-2 h-2'} bg-red-400 rounded-full`}
-                    title="加载失败"
-                  ></div>
-                )}
+          {/* 图标层 - 充满整个卡片 */}
+          <div
+            className="absolute inset-0 overflow-hidden select-none"
+            style={{
+              borderRadius: `${cardBorderRadius / 16}rem`,
+              background: icon
+                ? (iconColor || 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)')
+                : 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+              boxShadow: '0 0.25rem 1rem rgba(0,0,0,0.3)',
+            }}
+          >
+            {icon ? (
+              // FontAwesome 图标 - 充满卡片
+              <div className="absolute inset-0 flex items-center justify-center">
+                <i
+                  className={icon}
+                  style={{
+                    fontSize: isMobile ? '1.5rem' : '2rem',
+                    color: 'rgba(255, 255, 255, 0.95)',
+                    filter: 'drop-shadow(0 0.125rem 0.25rem rgba(0, 0, 0, 0.3))',
+                  }}
+                />
               </div>
+            ) : showErrorPlaceholder ? (
+              // 错误占位 - 显示地球图标
+              <div className="absolute inset-0 flex items-center justify-center">
+                <i
+                  className="fa-solid fa-globe"
+                  style={{
+                    fontSize: isMobile ? '1.25rem' : '1.5rem',
+                    color: 'rgba(255, 255, 255, 0.5)',
+                  }}
+                />
+              </div>
+            ) : (
+              // Favicon - 充满整个卡片
+              <img
+                src={faviconUrl}
+                alt={`${name} favicon`}
+                className="absolute inset-0 w-full h-full select-none"
+                loading="lazy"
+                draggable="false"
+                onError={() => setImgError(true)}
+                style={{
+                  objectFit: 'cover',
+                }}
+              />
+            )}
+
+            {/* 加载状态指示器 */}
+            {!icon && isLoading && !showErrorPlaceholder && (
+              <div
+                className="absolute bg-yellow-400 rounded-full animate-pulse"
+                style={{
+                  top: '0.25rem',
+                  right: '0.25rem',
+                  width: '0.375rem',
+                  height: '0.375rem',
+                }}
+                title="加载中..."
+              />
+            )}
+          </div>
+
+          {/* 底部信息叠加层 - 占卡片下半部分 */}
+          <div
+            className="absolute left-0 right-0 bottom-0 pointer-events-none select-none"
+            style={{ height: '60%' }}
+          >
+            {/* 渐变遮罩 - 更深的黑色底部 */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.6) 40%, rgba(0, 0, 0, 0.95) 100%)',
+                borderRadius: `0 0 ${cardBorderRadius / 16}rem ${cardBorderRadius / 16}rem`,
+              }}
+            />
+
+            {/* 信息内容 - 定位在底部 */}
+            <div
+              className="absolute bottom-0 left-0 right-0 flex flex-col items-center"
+              style={{
+                padding: isMobile ? '0.125rem' : '0.25rem',
+              }}
+            >
+              {/* 网站名称 */}
               <h3
-                className={`${isMobile ? 'text-[10px] line-clamp-1 mt-0.5 px-0.5' : 'text-xs line-clamp-2 px-2 mt-1'} font-medium text-white text-center select-none drop-shadow-sm`}
+                className="font-medium text-white text-center select-none w-full"
+                style={{
+                  fontSize: isMobile ? '0.625rem' : '0.75rem',
+                  lineHeight: '1.2',
+                  marginBottom: '0.125rem',
+                  textShadow: '0 0.0625rem 0.125rem rgba(0, 0, 0, 0.8)',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 1,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                }}
               >
                 {name}
               </h3>
-            </div>
 
-            {/* 备注区域 - 移动端简化 */}
-            {!isMobile && subtitleText && (
-              <div className="px-2 mb-1 select-none">
-                <p className="text-white/80 text-[0.65rem] text-center line-clamp-2 select-none drop-shadow-sm">
-                  {subtitleText}
-                </p>
-              </div>
-            )}
-
-            {/* 标签区域 - 移动端隐藏 */}
-            {!isMobile && (
-              <div className="mt-0 px-3 pb-2 select-none">
-                <div className="flex flex-wrap gap-1 justify-center select-none">
-                  {tags.slice(0, 6).map((tag) => (
+              {/* 标签和访问次数 - 桌面端 */}
+              {!isMobile && (tags.length > 0 || visitCount > 0) && (
+                <div
+                  className="flex flex-wrap items-center justify-center select-none"
+                  style={{ gap: '0.125rem' }}
+                >
+                  {tags.slice(0, 1).map((tag) => (
                     <span
                       key={tag}
-                      className="px-1.5 py-0.5 bg-white/20 rounded-full text-[0.65rem] text-white max-w-[60px] truncate select-none"
+                      className="bg-white/20 text-white/90 truncate select-none"
+                      style={{
+                        padding: '0 0.1875rem',
+                        borderRadius: '0.125rem',
+                        fontSize: '0.5rem',
+                        maxWidth: '2.5rem',
+                      }}
                     >
                       {tag}
                     </span>
                   ))}
                   {visitCount > 0 && (
-                    <span className="px-1.5 py-0.5 bg-blue-500/30 text-blue-100 rounded-full text-[0.65rem] border border-blue-200/40 select-none">
-                      <i className="fa-solid fa-eye mr-1 select-none"></i>
+                    <span
+                      className="bg-blue-500/30 text-blue-100 select-none"
+                      style={{
+                        padding: '0 0.1875rem',
+                        borderRadius: '0.125rem',
+                        fontSize: '0.5rem',
+                      }}
+                    >
+                      <i className="fa-solid fa-eye select-none" style={{ marginRight: '0.0625rem' }}></i>
                       <span className="select-none">{visitCount}</span>
                     </span>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* 占位空间，保持卡片高度一致 */}
-            <div className="flex-1"></div>
+              {/* 移动端简化显示 */}
+              {isMobile && visitCount > 0 && (
+                <div
+                  className="flex items-center justify-center text-white/90 select-none"
+                  style={{ gap: '0.0625rem', fontSize: '0.3125rem' }}
+                >
+                  <i className="fa-solid fa-eye select-none"></i>
+                  <span className="select-none">{visitCount}</span>
+                </div>
+              )}
+            </div>
           </div>
-
-          {/* 悬停效果边框 */}
-          {!isMobile && isHovered && !isDragging && (
-            <motion.div
-              className="absolute inset-0 ring-2 ring-white/30 pointer-events-none"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              style={{ borderRadius: cardBorderRadius }}
-            />
-          )}
 
           {/* 拖拽时的占位提示 */}
           {isDragging && (
@@ -449,35 +477,19 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              style={{ borderRadius: cardBorderRadius }}
+              style={{ borderRadius: `${cardBorderRadius / 16}rem` }}
             >
               <motion.div
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ duration: 1, repeat: Infinity }}
-                className="text-white/80 text-sm"
+                style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.875rem' }}
               >
                 <i className="fa-solid fa-arrows-up-down-left-right"></i>
               </motion.div>
             </motion.div>
           )}
-
-          {/* 悬停时的阴影效果 */}
-          {!isMobile && isHovered && (
-            <motion.div
-              className="absolute inset-0 pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.5, ease: 'easeOut' }}
-              style={{
-                boxShadow: '0 8px 25px rgba(0,0,0,0.2)',
-                zIndex: -1,
-                borderRadius: cardBorderRadius,
-              }}
-            />
-          )}
-        </motion.div>
-      </Tilt >
+        </Tilt>
+      </motion.div>
 
       {showEditModal && (
         <DockEditModal
