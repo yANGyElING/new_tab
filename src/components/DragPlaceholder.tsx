@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { useTransparency } from '@/contexts/TransparencyContext';
 
 interface DragPlaceholderProps {
   isActive: boolean;
@@ -8,7 +7,6 @@ interface DragPlaceholderProps {
 
 export function DragPlaceholder({ isActive }: DragPlaceholderProps) {
   const { getCardClasses } = useResponsiveLayout();
-  const { cardOpacity, cardColor } = useTransparency();
 
   if (!isActive) return null;
 
@@ -16,7 +14,7 @@ export function DragPlaceholder({ isActive }: DragPlaceholderProps) {
     <motion.div
       className={`${getCardClasses()} relative rounded-lg border-2 border-dashed border-white/40`}
       style={{
-        backgroundColor: `rgba(${cardColor}, ${Math.max(cardOpacity * 0.3, 0.1)})`,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
         backdropFilter: 'blur(5px)',
       }}
       initial={{ opacity: 0, scale: 0.8 }}

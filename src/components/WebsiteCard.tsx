@@ -71,7 +71,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
   const [imgError, setImgError] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const { autoSortEnabled, searchInNewTab } = useTransparency();
+  const { autoSortEnabled, searchInNewTab, searchBarColor, searchBarOpacity } = useTransparency();
   const { faviconUrl, isLoading, error } = useLazyFavicon(url, favicon, cardRef);
   const { isMobile, getCardClasses } = useResponsiveLayout();
   const cardBorderRadius = isMobile ? 12 : 16;
@@ -263,12 +263,12 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
 
   return (
     <>
-      {/* 外层 motion.div 处理拖拽动画 */}
+      {/* 外层容器 - 包含卡片和下方名称 */}
       <motion.div
         data-website-card="true"
-        className={`${getCardClasses()} relative`}
+        className={`${getCardClasses()} relative flex flex-col items-center`}
         style={{
-          aspectRatio: '1 / 1',
+          aspectRatio: 'auto',
         }}
         animate={{
           opacity: isDragging ? 0.5 : 1,
@@ -306,7 +306,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
         viewport={{ once: true }}
         ref={cardRef}
       >
-        {/* 内层 Tilt 组件实现3D效果 */}
+        {/* 内层 Tilt 组件实现3D效果 - 正方形卡片 */}
         <Tilt
           tiltEnable={!isMobile && !isDragging && !autoSortEnabled}
           tiltReverse={true}
@@ -314,58 +314,65 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
           tiltMaxAngleY={12}
           perspective={800}
           transitionSpeed={400}
-          scale={1.02}
+          scale={1.05}
           glareEnable={false}
-          className="w-full h-full"
-          style={{ borderRadius: `${cardBorderRadius / 16}rem` }}
+          className="w-full"
+          style={{
+            borderRadius: `${cardBorderRadius / 16}rem`,
+            aspectRatio: '1 / 1',
+          }}
         >
           {/* 图标层 - 充满整个卡片 */}
           <div
-            className="absolute inset-0 overflow-hidden select-none"
+            className="absolute inset-0 overflow-hidden select-none backdrop-blur-2xl border border-white/30"
             style={{
               borderRadius: `${cardBorderRadius / 16}rem`,
               background: icon
                 ? (iconColor || 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)')
-                : 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+                : `rgba(${searchBarColor}, ${searchBarOpacity})`,
               boxShadow: '0 0.25rem 1rem rgba(0,0,0,0.3)',
             }}
           >
             {icon ? (
-              // FontAwesome 图标 - 充满卡片
-              <div className="absolute inset-0 flex items-center justify-center">
+              // FontAwesome 图标 - 缩小尺寸，靠上显示
+              <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%' }}>
                 <i
                   className={icon}
                   style={{
-                    fontSize: isMobile ? '1.5rem' : '2rem',
+                    fontSize: isMobile ? '1.25rem' : '1.5rem',
                     color: 'rgba(255, 255, 255, 0.95)',
                     filter: 'drop-shadow(0 0.125rem 0.25rem rgba(0, 0, 0, 0.3))',
                   }}
                 />
               </div>
             ) : showErrorPlaceholder ? (
-              // 错误占位 - 显示地球图标
-              <div className="absolute inset-0 flex items-center justify-center">
+              // 错误占位 - 显示地球图标，靠上显示
+              <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%' }}>
                 <i
                   className="fa-solid fa-globe"
                   style={{
-                    fontSize: isMobile ? '1.25rem' : '1.5rem',
+                    fontSize: isMobile ? '1rem' : '1.25rem',
                     color: 'rgba(255, 255, 255, 0.5)',
                   }}
                 />
               </div>
             ) : (
-              // Favicon - 充满整个卡片
-              <img
-                src={faviconUrl}
-                alt={`${name} favicon`}
-                className="absolute inset-0 w-full h-full select-none"
-                loading="lazy"
-                draggable="false"
-                onError={() => setImgError(true)}
-                style={{
-                  objectFit: 'cover',
-                }}
-              />
+              // Favicon - 缩小并靠上显示
+              <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%', paddingTop: '1rem' }}>
+                <img
+                  src={faviconUrl}
+                  alt={`${name} favicon`}
+                  className="select-none"
+                  loading="lazy"
+                  draggable="false"
+                  onError={() => setImgError(true)}
+                  style={{
+                    width: isMobile ? '2rem' : '2.5rem',
+                    height: isMobile ? '2rem' : '2.5rem',
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
             )}
 
             {/* 加载状态指示器 */}
@@ -383,92 +390,69 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
             )}
           </div>
 
-          {/* 底部信息叠加层 - 占卡片下半部分 */}
-          <div
-            className="absolute left-0 right-0 bottom-0 pointer-events-none select-none"
-            style={{ height: '60%' }}
-          >
-            {/* 渐变遮罩 - 更深的黑色底部 */}
+          {/* 底部毛玻璃层 - 只显示标签和访问次数 */}
+          {(tags.length > 0 || visitCount > 0) && (
             <div
-              className="absolute inset-0"
+              className="absolute left-0 right-0 bottom-0 pointer-events-none select-none"
               style={{
-                background: 'linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.6) 40%, rgba(0, 0, 0, 0.95) 100%)',
-                borderRadius: `0 0 ${cardBorderRadius / 16}rem ${cardBorderRadius / 16}rem`,
-              }}
-            />
-
-            {/* 信息内容 - 定位在底部 */}
-            <div
-              className="absolute bottom-0 left-0 right-0 flex flex-col items-center"
-              style={{
-                padding: isMobile ? '0.125rem' : '0.25rem',
+                height: '35%',
+                willChange: 'transform',
+                transform: 'translateZ(0)',
               }}
             >
-              {/* 网站名称 */}
-              <h3
-                className="font-medium text-white text-center select-none w-full"
+              {/* 毛玻璃遮罩 */}
+              <div
+                className="absolute inset-0 backdrop-blur-md"
                 style={{
-                  fontSize: isMobile ? '0.625rem' : '0.75rem',
-                  lineHeight: '1.2',
-                  marginBottom: '0.125rem',
-                  textShadow: '0 0.0625rem 0.125rem rgba(0, 0, 0, 0.8)',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 1,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
+                  background: 'linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.3) 100%)',
+                  borderRadius: `0 0 ${cardBorderRadius / 16}rem ${cardBorderRadius / 16}rem`,
+                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%)',
+                  maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%)',
+                  willChange: 'transform, opacity',
+                  transform: 'translateZ(0)',
+                }}
+              />
+
+              {/* 标签和访问次数 */}
+              <div
+                className="absolute bottom-0 left-0 right-0 flex flex-wrap items-center justify-center select-none"
+                style={{
+                  padding: isMobile ? '0.125rem' : '0.1875rem',
+                  gap: '0.125rem',
                 }}
               >
-                {name}
-              </h3>
-
-              {/* 标签和访问次数 - 桌面端 */}
-              {!isMobile && (tags.length > 0 || visitCount > 0) && (
-                <div
-                  className="flex flex-wrap items-center justify-center select-none"
-                  style={{ gap: '0.125rem' }}
-                >
-                  {tags.slice(0, 1).map((tag) => (
-                    <span
-                      key={tag}
-                      className="bg-white/20 text-white/90 truncate select-none"
-                      style={{
-                        padding: '0 0.1875rem',
-                        borderRadius: '0.125rem',
-                        fontSize: '0.5rem',
-                        maxWidth: '2.5rem',
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                  {visitCount > 0 && (
-                    <span
-                      className="bg-blue-500/30 text-blue-100 select-none"
-                      style={{
-                        padding: '0 0.1875rem',
-                        borderRadius: '0.125rem',
-                        fontSize: '0.5rem',
-                      }}
-                    >
-                      <i className="fa-solid fa-eye select-none" style={{ marginRight: '0.0625rem' }}></i>
-                      <span className="select-none">{visitCount}</span>
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* 移动端简化显示 */}
-              {isMobile && visitCount > 0 && (
-                <div
-                  className="flex items-center justify-center text-white/90 select-none"
-                  style={{ gap: '0.0625rem', fontSize: '0.3125rem' }}
-                >
-                  <i className="fa-solid fa-eye select-none"></i>
-                  <span className="select-none">{visitCount}</span>
-                </div>
-              )}
+                {tags.slice(0, 1).map((tag) => (
+                  <span
+                    key={tag}
+                    className="bg-black/20 text-white truncate select-none"
+                    style={{
+                      padding: '0.0625rem 0.25rem',
+                      borderRadius: '0.1875rem',
+                      fontSize: isMobile ? '0.5rem' : '0.625rem',
+                      maxWidth: '3rem',
+                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {visitCount > 0 && (
+                  <span
+                    className="bg-blue-500/40 text-white select-none"
+                    style={{
+                      padding: '0.0625rem 0.25rem',
+                      borderRadius: '0.1875rem',
+                      fontSize: isMobile ? '0.5rem' : '0.625rem',
+                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+                    }}
+                  >
+                    <i className="fa-solid fa-eye select-none" style={{ marginRight: '0.0625rem' }}></i>
+                    <span className="select-none">{visitCount}</span>
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 拖拽时的占位提示 */}
           {isDragging && (
@@ -489,6 +473,24 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
             </motion.div>
           )}
         </Tilt>
+
+        {/* 卡片名称 - 在卡片下方 */}
+        <h3
+          className="text-white text-center select-none w-full"
+          style={{
+            fontSize: isMobile ? '0.75rem' : '0.8rem',
+            lineHeight: '1.3',
+            marginTop: '0.375rem',
+            textShadow: '0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.5)',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+          }}
+        >
+          {name}
+        </h3>
       </motion.div>
 
       {showEditModal && (

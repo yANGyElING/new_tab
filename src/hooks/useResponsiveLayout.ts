@@ -43,14 +43,14 @@ const DEFAULT_LAYOUT: ResponsiveLayoutConfig = {
     wide: 16,
   },
   gaps: {
-    mobile: 'gap-1',
-    tablet: 'gap-1.5',
-    desktop: 'gap-2',
+    mobile: 'gap-1.5',
+    tablet: 'gap-2',
+    desktop: 'gap-3',
   },
   cardSizes: {
-    mobile: 'w-[3.5rem]',
-    tablet: 'w-[4.5rem]',
-    desktop: 'w-[5rem]',
+    mobile: 'w-[4rem]',
+    tablet: 'w-[5rem]',
+    desktop: 'w-[5.5rem]',
   },
 };
 

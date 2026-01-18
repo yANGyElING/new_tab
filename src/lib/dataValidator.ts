@@ -64,14 +64,6 @@ export const validateUserSettings = (settings: any): settings is UserSettings =>
 
   // 透明度验证 (0-1之间)
   if (
-    typeof settings.cardOpacity !== 'number' ||
-    settings.cardOpacity < 0 ||
-    settings.cardOpacity > 1
-  ) {
-    return false;
-  }
-
-  if (
     typeof settings.searchBarOpacity !== 'number' ||
     settings.searchBarOpacity < 0 ||
     settings.searchBarOpacity > 1
@@ -125,10 +117,6 @@ export const sanitizeWebsiteData = (website: any): WebsiteData | null => {
  */
 export const sanitizeUserSettings = (settings: any): UserSettings => {
   return {
-    cardOpacity:
-      typeof settings.cardOpacity === 'number'
-        ? Math.max(0.05, Math.min(1, settings.cardOpacity))
-        : 0.1,
     searchBarOpacity:
       typeof settings.searchBarOpacity === 'number'
         ? Math.max(0.05, Math.min(1, settings.searchBarOpacity))
@@ -141,7 +129,6 @@ export const sanitizeUserSettings = (settings: any): UserSettings => {
       ? settings.wallpaperResolution
       : '1080p',
     theme: typeof settings.theme === 'string' ? settings.theme : 'light',
-    cardColor: typeof settings.cardColor === 'string' ? settings.cardColor : '255, 255, 255',
     searchBarColor:
       typeof settings.searchBarColor === 'string' ? settings.searchBarColor : '255, 255, 255',
     autoSyncEnabled:

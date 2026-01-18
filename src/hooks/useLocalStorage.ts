@@ -88,7 +88,6 @@ export function useWebsitesStorage() {
  * 透明度设置的专用Hook
  */
 export function useTransparencyStorage() {
-  const [cardOpacity, setCardOpacity] = useLocalStorage('cardOpacity', 0.1);
   const [searchBarOpacity, setSearchBarOpacity] = useLocalStorage('searchBarOpacity', 0.1);
   const [parallaxEnabled, setParallaxEnabled] = useLocalStorage('parallaxEnabled', true);
   const [wallpaperResolution, setWallpaperResolution] = useLocalStorage<
@@ -96,11 +95,9 @@ export function useTransparencyStorage() {
   >('wallpaperResolution', '1080p');
 
   return {
-    cardOpacity: Number(cardOpacity),
     searchBarOpacity: Number(searchBarOpacity),
     parallaxEnabled: Boolean(parallaxEnabled),
     wallpaperResolution,
-    setCardOpacity: (value: number) => setCardOpacity(value),
     setSearchBarOpacity: (value: number) => setSearchBarOpacity(value),
     setParallaxEnabled: (value: boolean) => setParallaxEnabled(value),
     setWallpaperResolution,

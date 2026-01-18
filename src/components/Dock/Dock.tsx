@@ -75,8 +75,6 @@ export const Dock = memo(function Dock({ isVisible }: DockProps) {
                 border
                 pointer-events-auto
                 max-w-[calc(100vw-32px)]
-                overflow-x-auto
-                scrollbar-hide
               `}
               style={{
                 borderRadius: isMobile ? '20px' : '24px',
@@ -92,6 +90,8 @@ export const Dock = memo(function Dock({ isVisible }: DockProps) {
                     0 8px 32px rgba(0, 0, 0, 0.25),
                     inset 0 0.5px 0 rgba(255, 255, 255, 0.3)
                   `,
+                overflow: 'visible',
+                paddingTop: isMobile ? '0.5rem' : '0.625rem',
               }}
             >
               {/* Dock Items */}

@@ -2,12 +2,10 @@ import { useCallback } from 'react';
 import { WallpaperResolution } from '@/contexts/TransparencyContext';
 
 interface SettingsData {
-  cardOpacity: number;
   searchBarOpacity: number;
   parallaxEnabled: boolean;
   wallpaperResolution: WallpaperResolution;
   theme: string;
-  cardColor: string;
   searchBarColor: string;
   autoSyncEnabled: boolean;
   autoSyncInterval: number;
@@ -40,13 +38,11 @@ export function useSettingsManager(): UseSettingsManagerReturn {
   const exportSettings = useCallback((): SettingsData => {
     try {
       return {
-        cardOpacity: parseFloat(localStorage.getItem('cardOpacity') || '0.1'),
         searchBarOpacity: parseFloat(localStorage.getItem('searchBarOpacity') || '0.1'),
         parallaxEnabled: JSON.parse(localStorage.getItem('parallaxEnabled') || 'true'),
         wallpaperResolution: (localStorage.getItem('wallpaperResolution') ||
           '1080p') as WallpaperResolution,
         theme: localStorage.getItem('theme') || 'light',
-        cardColor: localStorage.getItem('cardColor') || '255, 255, 255',
         searchBarColor: localStorage.getItem('searchBarColor') || '255, 255, 255',
         autoSyncEnabled: localStorage.getItem('autoSyncEnabled') === 'true',
         autoSyncInterval: parseInt(localStorage.getItem('autoSyncInterval') || '30'),
@@ -70,12 +66,10 @@ export function useSettingsManager(): UseSettingsManagerReturn {
     } catch (error) {
       console.warn('导出设置失败，使用默认值:', error);
       return {
-        cardOpacity: 0.1,
         searchBarOpacity: 0.1,
         parallaxEnabled: true,
         wallpaperResolution: '1080p',
         theme: 'light',
-        cardColor: '255, 255, 255',
         searchBarColor: '255, 255, 255',
         autoSyncEnabled: true,
         autoSyncInterval: 30,
@@ -98,16 +92,6 @@ export function useSettingsManager(): UseSettingsManagerReturn {
   // 验证设置数据
   const validateSettings = useCallback((settings: any): { valid: boolean; errors: string[] } => {
     const errors: string[] = [];
-
-    if (settings.cardOpacity !== undefined) {
-      if (
-        typeof settings.cardOpacity !== 'number' ||
-        settings.cardOpacity < 0.05 ||
-        settings.cardOpacity > 0.3
-      ) {
-        errors.push('卡片透明度值无效（应在0.05-0.3之间）');
-      }
-    }
 
     if (settings.searchBarOpacity !== undefined) {
       if (
@@ -135,10 +119,6 @@ export function useSettingsManager(): UseSettingsManagerReturn {
       if (!['light', 'dark'].includes(settings.theme)) {
         errors.push('主题值无效（应为light或dark）');
       }
-    }
-
-    if (settings.cardColor !== undefined && typeof settings.cardColor !== 'string') {
-      errors.push('卡片颜色值无效');
     }
 
     if (settings.searchBarColor !== undefined && typeof settings.searchBarColor !== 'string') {
@@ -243,14 +223,6 @@ export function useSettingsManager(): UseSettingsManagerReturn {
       // 准备所有要应用的设置
       const settingsToApply: Array<{ key: string; value: string; label: string }> = [];
 
-      if (typeof settings.cardOpacity === 'number') {
-        settingsToApply.push({
-          key: 'cardOpacity',
-          value: settings.cardOpacity.toString(),
-          label: '卡片透明度',
-        });
-      }
-
       if (typeof settings.searchBarOpacity === 'number') {
         settingsToApply.push({
           key: 'searchBarOpacity',
@@ -283,14 +255,6 @@ export function useSettingsManager(): UseSettingsManagerReturn {
           key: 'theme',
           value: settings.theme,
           label: '主题',
-        });
-      }
-
-      if (settings.cardColor) {
-        settingsToApply.push({
-          key: 'cardColor',
-          value: settings.cardColor,
-          label: '卡片颜色',
         });
       }
 

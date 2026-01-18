@@ -183,7 +183,6 @@ export function useWebsiteData(options: UseWebsiteDataOptions = {}): UseWebsiteD
       const exportData = {
         websites,
         settings: {
-          cardOpacity: parseFloat(localStorage.getItem('cardOpacity') || '0.1'),
           searchBarOpacity: parseFloat(localStorage.getItem('searchBarOpacity') || '0.1'),
           parallaxEnabled: JSON.parse(localStorage.getItem('parallaxEnabled') || 'true'),
           wallpaperResolution: localStorage.getItem('wallpaperResolution') || '1080p',

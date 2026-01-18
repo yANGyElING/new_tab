@@ -203,14 +203,9 @@ function AppContent() {
       logger.debug('🔄 应用云端设置数据', cloudSettings);
 
       // 应用云端设置到本地状态
-      setCardOpacity(cloudSettings.cardOpacity);
-      setSearchBarOpacity(cloudSettings.searchBarOpacity);
       setParallaxEnabled(cloudSettings.parallaxEnabled);
       setWallpaperResolution(cloudSettings.wallpaperResolution);
-      setCardColor(cloudSettings.cardColor);
-      setSearchBarColor(cloudSettings.searchBarColor);
       setAutoSyncEnabled(cloudSettings.autoSyncEnabled);
-      setAutoSyncInterval(cloudSettings.autoSyncInterval);
       setAutoSortEnabled(cloudSettings.autoSortEnabled ?? false); // 提供默认值
 
       // 同步主题设置

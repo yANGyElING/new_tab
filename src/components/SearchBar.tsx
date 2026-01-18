@@ -1497,7 +1497,19 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                 /* Animation complete */
               }}
             >
-              <div className="relative flex-1">
+              <div className="relative flex-1 flex items-center">
+                {/* 搜索引擎图标 */}
+                <div
+                  className="absolute left-3 flex items-center justify-center w-6 h-6 rounded-md z-10"
+                  style={{
+                    backgroundColor: searchEngine === 'google' ? '#4285F4' : '#00809D',
+                  }}
+                  title={searchEngine === 'google' ? 'Google 搜索' : 'Bing 搜索'}
+                >
+                  <span className="text-white font-bold text-sm">
+                    {searchEngine === 'google' ? 'G' : 'B'}
+                  </span>
+                </div>
                 <input
                   ref={inputRef}
                   type="text"
@@ -1562,7 +1574,7 @@ function SearchBarComponent(props: SearchBarProps = {}) {
                     }, 150);
                   }}
                   placeholder="搜点啥捏..."
-                  className="backdrop-blur-md border border-white/20 pl-4 py-2 text-white placeholder-white/60 outline-none text-base transition-all duration-200 pr-12 w-full"
+                  className="backdrop-blur-2xl border border-white/30 shadow-lg shadow-black/10 pl-12 py-2 text-white placeholder-white/60 outline-none text-base transition-all duration-200 pr-12 w-full"
                   style={{
                     backgroundColor: `rgba(${searchBarColor}, ${searchBarOpacity})`,
                     minWidth: '4rem',

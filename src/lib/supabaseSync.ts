@@ -13,12 +13,10 @@ import {
 
 // 用户设置接口
 export interface UserSettings {
-  cardOpacity: number;
   searchBarOpacity: number;
   parallaxEnabled: boolean;
   wallpaperResolution: WallpaperResolution;
   theme: string;
-  cardColor: string; // 卡片颜色 (RGB字符串)
   searchBarColor: string; // 搜索框颜色 (RGB字符串)
   autoSyncEnabled: boolean; // 自动同步开关
   autoSyncInterval: number; // 自动同步间隔（秒）
@@ -111,12 +109,10 @@ export const saveUserSettings = async (
       // 尝试同步所有字段，如果新字段不可用则回退到基本字段
       const fullData = {
         id: user.id,
-        card_opacity: validatedSettings.cardOpacity,
         search_bar_opacity: validatedSettings.searchBarOpacity,
         parallax_enabled: validatedSettings.parallaxEnabled,
         wallpaper_resolution: validatedSettings.wallpaperResolution,
         theme: validatedSettings.theme,
-        card_color: validatedSettings.cardColor,
         search_bar_color: validatedSettings.searchBarColor,
         auto_sync_enabled: validatedSettings.autoSyncEnabled,
         auto_sync_interval: validatedSettings.autoSyncInterval,
@@ -146,7 +142,6 @@ export const saveUserSettings = async (
 
           const basicData = {
             id: user.id,
-            card_opacity: settings.cardOpacity,
             search_bar_opacity: settings.searchBarOpacity,
             parallax_enabled: settings.parallaxEnabled,
             wallpaper_resolution: settings.wallpaperResolution,
@@ -197,13 +192,11 @@ export const getUserSettings = async (user: User): Promise<UserSettings | null> 
     if (data) {
       logger.sync.info('从云端获取用户设置成功');
       return {
-        cardOpacity: data.card_opacity,
         searchBarOpacity: data.search_bar_opacity,
         parallaxEnabled: data.parallax_enabled,
         wallpaperResolution: data.wallpaper_resolution,
         theme: data.theme,
         // 新字段处理，如果数据库中存在则使用，否则使用默认值
-        cardColor: data.card_color || '255, 255, 255',
         searchBarColor: data.search_bar_color || '255, 255, 255',
         autoSyncEnabled: data.auto_sync_enabled !== undefined ? data.auto_sync_enabled : true,
         autoSyncInterval:

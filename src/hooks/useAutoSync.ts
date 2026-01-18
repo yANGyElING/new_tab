@@ -8,7 +8,6 @@ export function useAutoSync(websites: WebsiteData[], dataInitialized: boolean = 
   const { currentUser } = useAuth();
   const { updateSyncStatus } = useSyncStatus();
   const {
-    cardOpacity,
     searchBarOpacity,
     parallaxEnabled,
     wallpaperResolution,
@@ -93,12 +92,10 @@ export function useAutoSync(websites: WebsiteData[], dataInitialized: boolean = 
       }
 
       const settings: UserSettings = {
-        cardOpacity,
         searchBarOpacity,
         parallaxEnabled,
         wallpaperResolution,
         theme: localStorage.getItem('theme') || 'light',
-        cardColor: localStorage.getItem('cardColor') || '255, 255, 255',
         searchBarColor: localStorage.getItem('searchBarColor') || '255, 255, 255',
         autoSyncEnabled,
         autoSyncInterval,
@@ -140,7 +137,6 @@ export function useAutoSync(websites: WebsiteData[], dataInitialized: boolean = 
               visitCount: w.visitCount,
             })),
             settings: {
-              cardOpacity,
               searchBarOpacity,
               parallaxEnabled,
               wallpaperResolution,
@@ -182,7 +178,6 @@ export function useAutoSync(websites: WebsiteData[], dataInitialized: boolean = 
     [
       currentUser,
       websites,
-      cardOpacity,
       searchBarOpacity,
       parallaxEnabled,
       wallpaperResolution,
@@ -221,7 +216,6 @@ export function useAutoSync(websites: WebsiteData[], dataInitialized: boolean = 
         visitCount: w.visitCount,
       })),
       settings: {
-        cardOpacity,
         searchBarOpacity,
         parallaxEnabled,
         wallpaperResolution,
@@ -295,7 +289,6 @@ export function useAutoSync(websites: WebsiteData[], dataInitialized: boolean = 
   }, [
     currentUser,
     websites,
-    cardOpacity,
     searchBarOpacity,
     parallaxEnabled,
     wallpaperResolution,

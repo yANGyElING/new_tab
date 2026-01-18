@@ -15,17 +15,16 @@ export const colorOptions: ColorOption[] = [
 ];
 
 interface TransparencyContextType {
-  cardOpacity: number;
   searchBarOpacity: number;
   parallaxEnabled: boolean;
   wallpaperResolution: WallpaperResolution;
   isSettingsOpen: boolean;
   isSearchFocused: boolean;
-  cardColor: string; // RGB字符串
   searchBarColor: string; // RGB字符串
   autoSyncEnabled: boolean; // 自动同步开关
   autoSyncInterval: number; // 自动同步间隔（秒）
   searchInNewTab: boolean; // 搜索是否在新标签页打开
+  searchEngine: 'google' | 'bing'; // 搜索引擎选择
   autoSortEnabled: boolean; // 自动排序开关
   timeComponentEnabled: boolean; // 时间组件显示开关
   showFullDate: boolean; // 是否显示完整日期（年月日周）
@@ -52,17 +51,13 @@ interface TransparencyContextType {
   darkModePreference: 'system' | 'on' | 'off' | 'scheduled'; // 夜间模式偏好
   darkModeScheduleStart: string; // 定时开始时间 HH:mm
   darkModeScheduleEnd: string; // 定时结束时间 HH:mm
-  setCardOpacity: (opacity: number) => void;
-  setSearchBarOpacity: (opacity: number) => void;
   setParallaxEnabled: (enabled: boolean) => void;
   setWallpaperResolution: (resolution: WallpaperResolution) => void;
   setIsSettingsOpen: (open: boolean) => void;
   setIsSearchFocused: (focused: boolean) => void;
-  setCardColor: (color: string) => void;
-  setSearchBarColor: (color: string) => void;
   setAutoSyncEnabled: (enabled: boolean) => void;
-  setAutoSyncInterval: (interval: number) => void;
   setSearchInNewTab: (enabled: boolean) => void;
+  setSearchEngine: (engine: 'google' | 'bing') => void;
   setAutoSortEnabled: (enabled: boolean) => void;
   setTimeComponentEnabled: (enabled: boolean) => void;
   setShowFullDate: (enabled: boolean) => void;
@@ -72,15 +67,12 @@ interface TransparencyContextType {
   setShowMonth: (enabled: boolean) => void;
   setShowDay: (enabled: boolean) => void;
   setDateDisplayMode: (mode: 'yearMonth' | 'yearMonthDay') => void;
-  setSearchBarBorderRadius: (radius: number) => void;
   setAnimationStyle: (style: 'dynamic' | 'simple') => void;
   setWorkCountdownEnabled: (enabled: boolean) => void;
   setLunchTime: (time: string) => void;
   setOffWorkTime: (time: string) => void;
   setAiIconDisplayMode: (mode: 'circular' | 'dropdown') => void;
   setAtmosphereMode: (mode: 'auto' | 'snow' | 'leaf' | 'off') => void;
-  setAtmosphereParticleCount: (count: number) => void;
-  setAtmosphereWindEnabled: (enabled: boolean) => void;
   setDarkOverlayEnabled: (enabled: boolean) => void;
   setDarkOverlayMode: (mode: 'off' | 'always' | 'smart') => void;
   setNoiseEnabled: (enabled: boolean) => void;
@@ -93,35 +85,16 @@ interface TransparencyContextType {
 const TransparencyContext = createContext<TransparencyContextType | undefined>(undefined);
 
 export function TransparencyProvider({ children }: { children: ReactNode }) {
-  const [cardOpacity, setCardOpacity] = useState(() => {
-    const saved = localStorage.getItem('cardOpacity');
-    let value = saved ? parseFloat(saved) : 0.1; // 默认值设置为 0.1
-    if (value > 1) value = value / 100; // 兼容旧数据
-    return Math.max(0.05, Math.min(1, value)); // 限制范围
-  });
-
-  const [searchBarOpacity, setSearchBarOpacity] = useState(() => {
-    const saved = localStorage.getItem('searchBarOpacity');
-    let value = saved ? parseFloat(saved) : 0.1; // 默认值设置为 0.1
-    if (value > 1) value = value / 100; // 兼容旧数据
-    return Math.max(0.05, Math.min(1, value)); // 限制范围
-  });
+  // 搜索框不透明度（固定值，不再提供配置）
+  const [searchBarOpacity] = useState(0.1);
 
   const [parallaxEnabled, setParallaxEnabled] = useState(() => {
     const saved = localStorage.getItem('parallaxEnabled');
     return saved ? JSON.parse(saved) : true;
   });
 
-  // 颜色状态管理
-  const [cardColor, setCardColor] = useState(() => {
-    const saved = localStorage.getItem('cardColor');
-    return saved || '255, 255, 255'; // 默认白色
-  });
-
-  const [searchBarColor, setSearchBarColor] = useState(() => {
-    const saved = localStorage.getItem('searchBarColor');
-    return saved || '255, 255, 255'; // 默认白色
-  });
+  // 搜索框颜色（固定值，不再提供配置）
+  const [searchBarColor] = useState('255, 255, 255');
 
   // 获取默认壁纸分辨率（根据宽高比判断）
   const getDefaultResolution = (): WallpaperResolution => {
@@ -149,16 +122,19 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     return saved ? saved === 'true' : true; // 默认开启
   });
 
-  const [autoSyncInterval, setAutoSyncInterval] = useState(() => {
-    const saved = localStorage.getItem('autoSyncInterval');
-    const value = saved ? parseInt(saved) : 10; // 默认10秒
-    return Math.max(3, Math.min(60, value)); // 限制在3-60秒之间
-  });
+  // 自动同步间隔（固定值，快速同步）
+  const [autoSyncInterval] = useState(3);
 
   // 搜索行为设置
   const [searchInNewTab, setSearchInNewTab] = useState(() => {
     const saved = localStorage.getItem('searchInNewTab');
     return saved ? saved === 'true' : true; // 默认在新标签页打开
+  });
+
+  // 搜索引擎选择
+  const [searchEngine, setSearchEngine] = useState<'google' | 'bing'>(() => {
+    const saved = localStorage.getItem('searchEngine') as 'google' | 'bing';
+    return saved || 'google'; // 默认使用 Google
   });
 
   // 自动排序设置
@@ -206,11 +182,8 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     return saved || 'yearMonthDay'; // 默认显示年月日
   });
 
-  const [searchBarBorderRadius, setSearchBarBorderRadius] = useState(() => {
-    const saved = localStorage.getItem('searchBarBorderRadius');
-    const value = saved ? parseInt(saved) : 9999; // 默认全圆角
-    return Math.max(0, Math.min(50, value)); // 限制在0-50px之间
-  });
+  // 搜索框圆角（固定值，不再提供配置）
+  const [searchBarBorderRadius] = useState(12);
 
   // 动画样式设置
   const [animationStyle, setAnimationStyle] = useState<'dynamic' | 'simple'>(() => {
@@ -251,18 +224,11 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     return (saved as 'auto' | 'snow' | 'leaf' | 'off') || 'auto';
   });
 
-  // 氛围效果粒子数量（1-200，滑轨档位1-100对应粒子数2-200）
-  const [atmosphereParticleCount, setAtmosphereParticleCount] = useState(() => {
-    const saved = localStorage.getItem('atmosphereParticleCount');
-    const value = saved ? parseInt(saved, 10) : 60; // 默认30档对应60个粒子
-    return Math.min(Math.max(value, 1), 200); // 限制在 1-200 范围内
-  });
+  // 氛围效果粒子数量（固定值，不再提供配置）
+  const [atmosphereParticleCount] = useState(1); // 固定为1，雪花=6个，落叶=4个
 
-  // 风力效果开关
-  const [atmosphereWindEnabled, setAtmosphereWindEnabled] = useState(() => {
-    const saved = localStorage.getItem('atmosphereWindEnabled');
-    return saved ? saved === 'true' : true; // 默认开启
-  });
+  // 风力效果（固定开启，不再提供配置）
+  const [atmosphereWindEnabled] = useState(true);
 
   // 黑色遮罩开关（壁纸暗角效果）
   const [darkOverlayEnabled, setDarkOverlayEnabled] = useState(() => {
@@ -377,14 +343,6 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cardOpacity', cardOpacity.toString());
-  }, [cardOpacity]);
-
-  useEffect(() => {
-    localStorage.setItem('searchBarOpacity', searchBarOpacity.toString());
-  }, [searchBarOpacity]);
-
-  useEffect(() => {
     localStorage.setItem('parallaxEnabled', JSON.stringify(parallaxEnabled));
   }, [parallaxEnabled]);
 
@@ -397,20 +355,12 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   }, [autoSyncEnabled]);
 
   useEffect(() => {
-    localStorage.setItem('autoSyncInterval', autoSyncInterval.toString());
-  }, [autoSyncInterval]);
-
-  useEffect(() => {
-    localStorage.setItem('cardColor', cardColor);
-  }, [cardColor]);
-
-  useEffect(() => {
-    localStorage.setItem('searchBarColor', searchBarColor);
-  }, [searchBarColor]);
-
-  useEffect(() => {
     localStorage.setItem('searchInNewTab', searchInNewTab.toString());
   }, [searchInNewTab]);
+
+  useEffect(() => {
+    localStorage.setItem('searchEngine', searchEngine);
+  }, [searchEngine]);
 
   useEffect(() => {
     localStorage.setItem('autoSortEnabled', autoSortEnabled.toString());
@@ -449,10 +399,6 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   }, [dateDisplayMode]);
 
   useEffect(() => {
-    localStorage.setItem('searchBarBorderRadius', searchBarBorderRadius.toString());
-  }, [searchBarBorderRadius]);
-
-  useEffect(() => {
     localStorage.setItem('animationStyle', animationStyle);
   }, [animationStyle]);
 
@@ -475,14 +421,6 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem('atmosphereMode', atmosphereMode);
   }, [atmosphereMode]);
-
-  useEffect(() => {
-    localStorage.setItem('atmosphereParticleCount', atmosphereParticleCount.toString());
-  }, [atmosphereParticleCount]);
-
-  useEffect(() => {
-    localStorage.setItem('atmosphereWindEnabled', atmosphereWindEnabled.toString());
-  }, [atmosphereWindEnabled]);
 
   useEffect(() => {
     localStorage.setItem('darkOverlayEnabled', darkOverlayEnabled.toString());
@@ -517,17 +455,16 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
   }, [darkMode]);
 
   const contextValue = React.useMemo(() => ({
-    cardOpacity,
     searchBarOpacity,
     parallaxEnabled,
     wallpaperResolution,
     isSettingsOpen,
     isSearchFocused,
-    cardColor,
     searchBarColor,
     autoSyncEnabled,
     autoSyncInterval,
     searchInNewTab,
+    searchEngine,
     autoSortEnabled,
     timeComponentEnabled,
     showFullDate,
@@ -554,17 +491,13 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     darkModeScheduleStart,
     darkModeScheduleEnd,
     isSlowMotion,
-    setCardOpacity,
-    setSearchBarOpacity,
     setParallaxEnabled,
     setWallpaperResolution,
     setIsSettingsOpen,
     setIsSearchFocused,
-    setCardColor,
-    setSearchBarColor,
     setAutoSyncEnabled,
-    setAutoSyncInterval,
     setSearchInNewTab,
+    setSearchEngine,
     setAutoSortEnabled,
     setTimeComponentEnabled,
     setShowFullDate,
@@ -574,15 +507,12 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     setShowMonth,
     setShowDay,
     setDateDisplayMode,
-    setSearchBarBorderRadius,
     setAnimationStyle,
     setWorkCountdownEnabled,
     setLunchTime,
     setOffWorkTime,
     setAiIconDisplayMode,
     setAtmosphereMode,
-    setAtmosphereParticleCount,
-    setAtmosphereWindEnabled,
     setDarkOverlayEnabled,
     setDarkOverlayMode,
     setNoiseEnabled,
@@ -591,9 +521,11 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     setDarkModeScheduleEnd,
     setIsSlowMotion,
   }), [
-    cardOpacity, searchBarOpacity, parallaxEnabled, wallpaperResolution, isSettingsOpen, isSearchFocused, cardColor, searchBarColor,
-    autoSyncEnabled, autoSyncInterval, searchInNewTab, autoSortEnabled, timeComponentEnabled, showFullDate, showSeconds, showWeekday,
-    showYear, showMonth, showDay, dateDisplayMode, searchBarBorderRadius, animationStyle, workCountdownEnabled, lunchTime, offWorkTime, aiIconDisplayMode, atmosphereMode, atmosphereParticleCount, atmosphereWindEnabled, darkOverlayEnabled, darkOverlayMode, noiseEnabled, darkMode, darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, isSlowMotion
+    searchBarOpacity, parallaxEnabled, wallpaperResolution, isSettingsOpen, isSearchFocused, searchBarColor,
+    autoSyncEnabled, autoSyncInterval, searchInNewTab, searchEngine, autoSortEnabled, timeComponentEnabled, showFullDate, showSeconds, showWeekday,
+    showYear, showMonth, showDay, dateDisplayMode, searchBarBorderRadius, animationStyle, workCountdownEnabled, lunchTime, offWorkTime,
+    aiIconDisplayMode, atmosphereMode, atmosphereParticleCount, atmosphereWindEnabled, darkOverlayEnabled, darkOverlayMode, noiseEnabled,
+    darkMode, darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, isSlowMotion
   ]);
 
   return (
