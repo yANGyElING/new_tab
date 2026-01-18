@@ -6,7 +6,6 @@ import AuthForm from '@/components/AuthForm';
 import PrivacySettings from '@/components/PrivacySettings';
 import AccountSecurityModal from '@/components/AccountSecurityModal';
 import ConfirmModal from '@/components/ConfirmModal';
-import { ColorPicker } from '@/components/ColorPicker';
 import UserStatsDisplay from '@/components/UserStatsDisplay';
 import { userStatsManager } from '@/hooks/useUserStats';
 import { useTransparency, WallpaperResolution } from '@/contexts/TransparencyContext';
@@ -15,6 +14,9 @@ import { useAuth } from '@/contexts/SupabaseAuthContext';
 import { useSyncStatus } from '@/contexts/SyncContext';
 import AccountSettingsSection from '@/components/AccountSettingsSection';
 import versionInfo from '@/version.json';
+import { BookmarkImportModal } from '@/components/BookmarkImport';
+import IOSToggle from '@/components/IOSToggle';
+import IOSSlider from '@/components/IOSSlider';
 
 import {
   WebsiteData,
@@ -45,18 +47,19 @@ const SECTIONS = [
   { id: 'features', label: '基础功能', icon: 'fa-cogs' },
   { id: 'interaction', label: '交互体验', icon: 'fa-wand-magic-sparkles' },
   { id: 'time', label: '时间设置', icon: 'fa-clock' },
-  { id: 'cards', label: '卡片管理', icon: 'fa-layer-group' },
   { id: 'data', label: '数据管理', icon: 'fa-database' },
   { id: 'privacy', label: '隐私帮助', icon: 'fa-shield-halved' },
 ];
 
 function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: SettingsProps) {
   const { isMobile } = useResponsiveLayout();
+  const { dockItems, setDockItems } = useDockData();
   const [showAddCardModal, setShowAddCardModal] = useState(false);
   const [showPrivacySettings, setShowPrivacySettings] = useState(false);
   const [showAccountSecurityModal, setShowAccountSecurityModal] = useState(false);
   const [showImportConfirm, setShowImportConfirm] = useState(false);
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const [showBookmarkImport, setShowBookmarkImport] = useState(false);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string>('');
   const [isFixingIcons, setIsFixingIcons] = useState(false);
@@ -173,15 +176,14 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     setWebsites
   );
   const {
-    cardOpacity,
     searchBarOpacity,
     parallaxEnabled,
     wallpaperResolution,
-    cardColor,
     searchBarColor,
     autoSyncEnabled,
     autoSyncInterval,
     searchInNewTab,
+    searchEngine,
     autoSortEnabled,
     timeComponentEnabled,
     showFullDate,
@@ -192,16 +194,12 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     showDay,
     searchBarBorderRadius,
     animationStyle,
-    setCardOpacity,
-    setSearchBarOpacity,
     setParallaxEnabled,
     setWallpaperResolution,
     setIsSettingsOpen,
-    setCardColor,
-    setSearchBarColor,
     setAutoSyncEnabled,
-    setAutoSyncInterval,
     setSearchInNewTab,
+    setSearchEngine,
     setAutoSortEnabled,
     setTimeComponentEnabled,
     setShowFullDate,
@@ -210,7 +208,6 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     setShowYear,
     setShowMonth,
     setShowDay,
-    setSearchBarBorderRadius,
     setAnimationStyle,
     workCountdownEnabled,
     lunchTime,
@@ -223,9 +220,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     atmosphereMode,
     setAtmosphereMode,
     atmosphereParticleCount,
-    setAtmosphereParticleCount,
     atmosphereWindEnabled,
-    setAtmosphereWindEnabled,
     darkOverlayMode,
     setDarkOverlayMode,
     noiseEnabled,
@@ -683,12 +678,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
 
     try {
       const settings: UserSettings = {
-        cardOpacity,
         searchBarOpacity,
         parallaxEnabled,
         wallpaperResolution,
         theme: localStorage.getItem('theme') || 'light',
-        cardColor,
         searchBarColor,
         autoSyncEnabled,
         autoSyncInterval,
@@ -738,14 +731,9 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
       const cloudWebsites = await getUserWebsites(currentUser);
 
       if (cloudSettings) {
-        setCardOpacity(cloudSettings.cardOpacity);
-        setSearchBarOpacity(cloudSettings.searchBarOpacity);
         setParallaxEnabled(cloudSettings.parallaxEnabled);
         setWallpaperResolution(cloudSettings.wallpaperResolution);
-        setCardColor(cloudSettings.cardColor);
-        setSearchBarColor(cloudSettings.searchBarColor);
         setAutoSyncEnabled(cloudSettings.autoSyncEnabled);
-        setAutoSyncInterval(cloudSettings.autoSyncInterval);
 
         // 新增设置项的同步
         setSearchInNewTab(cloudSettings.searchInNewTab ?? true);
@@ -757,7 +745,6 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
         setShowYear(cloudSettings.showYear ?? true);
         setShowMonth(cloudSettings.showMonth ?? true);
         setShowDay(cloudSettings.showDay ?? true);
-        setSearchBarBorderRadius(cloudSettings.searchBarBorderRadius ?? 12);
 
         localStorage.setItem('theme', cloudSettings.theme || 'light');
       }
@@ -793,11 +780,12 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
       />
 
       <motion.div
-        className={`${isMobile ? 'w-full h-full rounded-none' : 'w-[900px] h-[85vh] rounded-2xl'} bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-[0_35px_80px_-15px_rgba(0,0,0,0.7),0_0_40px_-10px_rgba(0,0,0,0.3)] dark:shadow-[0_35px_80px_-15px_rgba(0,0,0,0.9),0_0_50px_rgba(0,0,0,0.5)] border border-white/60 dark:border-gray-600/40 ring-1 ring-white/30 dark:ring-white/5 z-50 flex ${isMobile ? 'flex-col' : 'flex-row'} select-none overflow-hidden relative before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-br before:from-white/20 before:via-transparent before:to-transparent before:pointer-events-none`}
-        initial={{ scale: 0.8, opacity: 0, y: 20 }}
+        className={`${isMobile ? 'w-full h-full rounded-none' : 'w-[900px] h-[85vh] rounded-2xl'} bg-white/70 dark:bg-gray-900/70 backdrop-blur-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] border border-white/20 dark:border-gray-700/30 z-50 flex ${isMobile ? 'flex-col' : 'flex-row'} select-none overflow-hidden relative`}
+        style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif' }}
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.8, opacity: 0, y: 20 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 400 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       >
         {/* 移动端顶部导航 */}
         {isMobile && (
@@ -831,31 +819,31 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
 
         {/* 左侧侧边栏 - 移动端隐藏 */}
         {!isMobile && (
-          <div className="w-[180px] flex-shrink-0 flex flex-col border-r border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+          <div className="w-[200px] flex-shrink-0 flex flex-col border-r border-gray-200/50 dark:border-gray-700/50 bg-gray-50/80 dark:bg-gray-800/50 backdrop-blur-xl">
             {/* 标题 */}
-            <div className="p-6 pb-4">
-              <div className="text-2xl font-black bg-gradient-to-br from-gray-800 to-gray-500 dark:from-white dark:to-gray-400 bg-clip-text text-transparent select-none mb-1 drop-shadow-sm filter">设置</div>
+            <div className="px-6 pt-8 pb-6">
+              <div className="text-[28px] font-semibold text-gray-900 dark:text-white select-none tracking-tight">设置</div>
             </div>
 
             {/* 导航列表 - 使用 SECTIONS 生成 */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-1 py-2">
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-3 space-y-0.5 py-2">
               {SECTIONS.map((section) => (
                 <button
                   key={section.id}
                   onClick={() => scrollToSection(section.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all duration-200 group relative ${activeSection === section.id
-                    ? 'text-gray-900 dark:text-white font-bold'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/30'
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 group relative ${activeSection === section.id
+                    ? 'text-gray-900 dark:text-white'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/60 dark:hover:bg-gray-700/60'
                     }`}
                 >
                   {activeSection === section.id && (
                     <motion.div
                       layoutId="activeSectionBg"
-                      className="absolute inset-0 bg-gradient-to-b from-white to-gray-50 dark:from-gray-700 dark:to-gray-800 shadow-md border border-gray-100 dark:border-gray-600 rounded-xl"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                      className="absolute inset-0 bg-white/90 dark:bg-gray-700/90 shadow-sm rounded-lg"
+                      transition={{ type: "spring", bounce: 0.15, duration: 0.5 }}
                     />
                   )}
-                  <span className="relative z-10 w-5 flex justify-center">
+                  <span className="relative z-10 w-4 flex justify-center text-[14px]">
                     <i className={`fa-solid ${section.icon}`}></i>
                   </span>
                   <span className="relative z-10">{section.label}</span>
@@ -882,7 +870,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
         {/* 主要内容区域 */}
         <div
           id="settings-content-scroll-container"
-          className="flex-1 overflow-y-auto select-none custom-scrollbar bg-white dark:bg-gray-900"
+          className="flex-1 overflow-y-auto select-none custom-scrollbar bg-[rgb(242,242,247)] dark:bg-gray-900/30"
         >
           <div className="p-8 space-y-12 pb-[60vh]">
 
@@ -899,7 +887,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               {currentUser ? (
                 <AccountSettingsSection onClose={handleClose} onOpenSecurityModal={() => setShowAccountSecurityModal(true)} />
               ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm">
                   <div>
                     <div className="flex items-center gap-4 mb-6">
                       <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -931,7 +919,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               </div>
 
               {/* 同步控制区域 - 现代化卡片 */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-5">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-5">
                 {/* 同步状态显示 */}
                 <SyncStatusIndicator />
 
@@ -959,57 +947,11 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                         : '需要手动操作同步数据，完全由您控制'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${autoSyncEnabled
-                      ? 'bg-gradient-to-r from-blue-400 to-cyan-500 shadow-lg shadow-cyan-300/50'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                      }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${autoSyncEnabled
-                        ? 'translate-x-6 shadow-cyan-200'
-                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                        }`}
-                    />
-                  </button>
+                  <IOSToggle
+                    checked={autoSyncEnabled}
+                    onChange={setAutoSyncEnabled}
+                  />
                 </div>
-
-                {/* 自动同步间隔设置 */}
-                {autoSyncEnabled && (
-                  <div className="space-y-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
-                        数据变化后延迟同步
-                      </label>
-                      <span className="text-sm text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/50 px-2 py-1 rounded">
-                        {autoSyncInterval}秒
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
-                      数据变化后等待此时间再同步，避免频繁请求。关闭设置或保存卡片时会立即同步。
-                    </p>
-                    <input
-                      type="range"
-                      min="3"
-                      max="60"
-                      step="1"
-                      value={autoSyncInterval}
-                      onChange={(e) => setAutoSyncInterval(parseInt(e.target.value))}
-                      className="w-full h-2 bg-gradient-to-r from-blue-200 to-blue-300 rounded-lg appearance-none cursor-pointer"
-                      style={{
-                        background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((autoSyncInterval - 3) / 57) * 100}%, #e2e8f0 ${((autoSyncInterval - 3) / 57) * 100}%, #e2e8f0 100%)`,
-                      }}
-                    />
-                    <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 select-none">
-                      <span className="select-none">3秒</span>
-                      <span className="text-green-600 select-none">快速</span>
-                      <span className="text-blue-600 select-none">平衡</span>
-                      <span className="text-purple-600 select-none">悠闲</span>
-                      <span className="select-none">60秒</span>
-                    </div>
-                  </div>
-                )}
 
                 {/* 手动同步按钮 */}
                 {!autoSyncEnabled && currentUser && currentUser.email_confirmed_at && (
@@ -1057,133 +999,6 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               </div>
             </div>
 
-            <div id="appearance" ref={(el) => (sectionsRef.current['appearance'] = el)} className="space-y-5 select-none settings-section scroll-mt-6">
-              <div className="flex items-center gap-3 select-none">
-                <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg flex items-center justify-center">
-                  <i className="fa-solid fa-palette text-white text-xs"></i>
-                </div>
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 select-none">外观设置</h3>
-                <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></div>
-              </div>
-
-              {/* 透明度控制区域 - 现代化卡片 */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-5">
-                {/* 搜索框不透明度控制 */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <i className="fa-solid fa-search text-blue-500 text-sm"></i>
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
-                        搜索框不透明度
-                      </label>
-                    </div>
-                    <span className="text-sm text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/50 px-2 py-1 rounded select-none">
-                      {Math.round(searchBarOpacity * 100)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.05"
-                    max="0.5"
-                    step="0.01"
-                    value={searchBarOpacity}
-                    onChange={(e) => setSearchBarOpacity(parseFloat(e.target.value))}
-                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((searchBarOpacity - 0.05) / 0.45) * 100}%, ${darkMode ? '#374151' : '#e2e8f0'} ${((searchBarOpacity - 0.05) / 0.45) * 100}%, ${darkMode ? '#374151' : '#e2e8f0'} 100%)`,
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 select-none">
-                    <span className="select-none">5%</span>
-                    <span className="text-gray-600 dark:text-gray-400 select-none">透明</span>
-                    <span className="text-gray-600 dark:text-gray-400 select-none">清晰</span>
-                    <span className="select-none">50%</span>
-                  </div>
-                </div>
-
-                {/* 搜索框颜色选择 */}
-                <div className="pt-2 border-t border-gray-100/60 dark:border-gray-700/60">
-                  <ColorPicker
-                    label="搜索框颜色"
-                    selectedColor={searchBarColor}
-                    onChange={setSearchBarColor}
-                  />
-                </div>
-
-                {/* 搜索框圆角调节 */}
-                <div className="space-y-3 pt-4 border-t border-gray-200/60">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <i className="fa-solid fa-border-all text-blue-500 text-sm"></i>
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
-                        搜索框圆角
-                      </label>
-                    </div>
-                    <span className="text-sm text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/50 px-2 py-1 rounded select-none">
-                      {searchBarBorderRadius >= 50 ? '全圆角' : `${searchBarBorderRadius}px`}
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    step="1"
-                    value={searchBarBorderRadius >= 50 ? 50 : searchBarBorderRadius}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value);
-                      setSearchBarBorderRadius(value === 50 ? 9999 : value);
-                    }}
-                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(Math.min(searchBarBorderRadius, 50) / 50) * 100}%, ${darkMode ? '#374151' : '#e2e8f0'} ${(Math.min(searchBarBorderRadius, 50) / 50) * 100}%, ${darkMode ? '#374151' : '#e2e8f0'} 100%)`,
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 select-none">
-                    <span className="select-none">直角</span>
-                    <span className="text-gray-600 select-none">圆角</span>
-                    <span className="text-gray-600 select-none">全圆</span>
-                  </div>
-                </div>
-
-                {/* 卡片不透明度控制 */}
-                <div className="space-y-3 pt-4 border-t border-gray-200/60">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <i className="fa-solid fa-layer-group text-blue-500 text-sm"></i>
-                      <label className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
-                        卡片不透明度
-                      </label>
-                    </div>
-                    <span className="text-sm text-blue-600 dark:text-blue-400 font-medium bg-blue-50 dark:bg-blue-900/50 px-2 py-1 rounded select-none">
-                      {Math.round(cardOpacity * 100)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.05"
-                    max="0.5"
-                    step="0.01"
-                    value={cardOpacity}
-                    onChange={(e) => setCardOpacity(parseFloat(e.target.value))}
-                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((cardOpacity - 0.05) / 0.45) * 100}%, ${darkMode ? '#374151' : '#e2e8f0'} ${((cardOpacity - 0.05) / 0.45) * 100}%, ${darkMode ? '#374151' : '#e2e8f0'} 100%)`,
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 select-none">
-                    <span className="select-none">5%</span>
-                    <span className="text-gray-600 dark:text-gray-400 select-none">透明</span>
-                    <span className="text-gray-600 dark:text-gray-400 select-none">清晰</span>
-                    <span className="select-none">50%</span>
-                  </div>
-                </div>
-
-                {/* 卡片颜色选择 */}
-                <div className="pt-2 border-t border-gray-100/60">
-                  <ColorPicker label="卡片颜色" selectedColor={cardColor} onChange={setCardColor} />
-                </div>
-              </div>
-            </div>
             <div id="theme" ref={(el) => (sectionsRef.current['theme'] = el)} className="space-y-5 select-none settings-section scroll-mt-6">
               <div className="flex items-center gap-3 select-none">
                 <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-500 rounded-lg flex items-center justify-center">
@@ -1193,7 +1008,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                 <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-4">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-4">
                 {/* 夜间模式设置 */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 mb-2">
@@ -1271,28 +1086,18 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <i className="fa-solid fa-wand-magic-sparkles text-blue-500 text-sm"></i>
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                      <span className="text-[13px] font-medium text-gray-900 dark:text-gray-100 select-none">
                         动画样式
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
-                      {animationStyle === 'dynamic' ? '灵动弹簧动画，更多视觉反馈' : '简约平滑动画，更稳定流畅'}
+                      {animationStyle === 'dynamic' ? '灵动弹簧动画' : '简约平滑动画'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setAnimationStyle(animationStyle === 'dynamic' ? 'simple' : 'dynamic')}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${animationStyle === 'dynamic'
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 shadow-lg shadow-purple-300/50'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                      }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${animationStyle === 'dynamic'
-                        ? 'translate-x-6 shadow-purple-200'
-                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                        }`}
-                    />
-                  </button>
+                  <IOSToggle
+                    checked={animationStyle === 'dynamic'}
+                    onChange={(checked) => setAnimationStyle(checked ? 'dynamic' : 'simple')}
+                  />
                 </div>
 
                 <div className="border-t border-gray-100 dark:border-gray-700"></div>
@@ -1356,18 +1161,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                       为壁纸添加细微噪点纹理，提升质感
                     </p>
                   </div>
-                  <button
-                    onClick={() => setNoiseEnabled(!noiseEnabled)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${noiseEnabled
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600'
-                      : 'bg-gray-200 dark:bg-gray-600'
-                      }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${noiseEnabled ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                    />
-                  </button>
+                  <IOSToggle
+                    checked={noiseEnabled}
+                    onChange={setNoiseEnabled}
+                  />
                 </div>
               </div>
             </div>
@@ -1381,7 +1178,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               </div>
 
               {/* 壁纸设置区域 */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-5">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-5">
                 {/* 模式切换 Tab */}
                 <div className="flex p-1 bg-gray-100 dark:bg-gray-700 rounded-xl select-none relative">
                   <button
@@ -1574,7 +1371,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                 <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-4">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-4">
                 {/* 视差效果开关 */}
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -1588,20 +1385,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                       {parallaxEnabled ? '背景会跟随鼠标轻微移动' : '背景固定不动'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setParallaxEnabled(!parallaxEnabled)}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${parallaxEnabled
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 shadow-lg shadow-purple-300/50'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                      }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${parallaxEnabled
-                        ? 'translate-x-6 shadow-purple-200'
-                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                        }`}
-                    />
-                  </button>
+                  <IOSToggle
+                    checked={parallaxEnabled}
+                    onChange={setParallaxEnabled}
+                  />
                 </div>
 
                 <div className="border-t border-gray-100 dark:border-gray-700"></div>
@@ -1619,20 +1406,51 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                       {searchInNewTab ? '在新标签页中打开搜索结果和卡片' : '在当前页面直接跳转'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setSearchInNewTab(!searchInNewTab)}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${searchInNewTab
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 shadow-lg shadow-purple-300/50'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
+                  <IOSToggle
+                    checked={searchInNewTab}
+                    onChange={setSearchInNewTab}
+                  />
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 搜索引擎选择 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <i className="fa-solid fa-magnifying-glass text-blue-500 text-sm"></i>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                        搜索引擎
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                      选择默认搜索引擎
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setSearchEngine('google')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                        searchEngine === 'google'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-purple-300/50'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${searchInNewTab
-                        ? 'translate-x-6 shadow-purple-200'
-                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                        }`}
-                    />
-                  </button>
+                    >
+                      <i className="fa-brands fa-google mr-1"></i>
+                      Google
+                    </button>
+                    <button
+                      onClick={() => setSearchEngine('bing')}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                        searchEngine === 'bing'
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-purple-300/50'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      <i className="fa-brands fa-microsoft mr-1"></i>
+                      Bing
+                    </button>
+                  </div>
                 </div>
 
                 <div className="border-t border-gray-100 dark:border-gray-700"></div>
@@ -1650,20 +1468,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                       {autoSortEnabled ? '按访问次数自动排序卡片' : '保持手动拖拽的顺序'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setAutoSortEnabled(!autoSortEnabled)}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${autoSortEnabled
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 shadow-lg shadow-purple-300/50'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                      }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${autoSortEnabled
-                        ? 'translate-x-6 shadow-purple-200'
-                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                        }`}
-                    />
-                  </button>
+                  <IOSToggle
+                    checked={autoSortEnabled}
+                    onChange={setAutoSortEnabled}
+                  />
                 </div>
 
                 <div className="border-t border-gray-100 dark:border-gray-700"></div>
@@ -1681,20 +1489,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                       {showLabels ? '图标下方显示名称标签' : '仅悬停时显示名称提示'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setShowLabels(!showLabels)}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${showLabels
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-600 shadow-lg shadow-purple-300/50'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                      }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${showLabels
-                        ? 'translate-x-6 shadow-purple-200'
-                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                        }`}
-                    />
-                  </button>
+                  <IOSToggle
+                    checked={showLabels}
+                    onChange={setShowLabels}
+                  />
                 </div>
               </div>
             </div>
@@ -1708,7 +1506,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                 <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-4">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-4">
                 {/* 氛围效果模式选择 */}
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -1765,71 +1563,6 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                   </div>
                 </div>
 
-                {/* 氛围效果粒子数量滑轨 - 未关闭时显示 */}
-                {atmosphereMode !== 'off' && (
-                  <>
-                    <div className="border-t border-gray-100 dark:border-gray-700"></div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <i className="fa-solid fa-sliders text-indigo-500 text-sm"></i>
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
-                              粒子数量
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-400 mt-0.5 select-none">过多的粒子会消耗更多性能哦</p>
-                        </div>
-                        <span className="text-sm font-medium text-indigo-600">
-                          {Math.round(atmosphereParticleCount / 2)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="1"
-                        max="100"
-                        step="1"
-                        value={Math.round(atmosphereParticleCount / 2)}
-                        onChange={(e) => setAtmosphereParticleCount(parseInt(e.target.value, 10) * 2)}
-                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                      />
-                      <div className="flex justify-between text-xs text-gray-400">
-                        <span>1</span>
-                        <span>100</span>
-                      </div>
-                    </div>
-
-                    {/* 风力效果开关 */}
-                    <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <i className="fa-solid fa-wind text-cyan-500 text-sm"></i>
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
-                            风力效果
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
-                          {atmosphereWindEnabled ? '粒子会受风力影响飘动' : '粒子自然下落'}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => setAtmosphereWindEnabled(!atmosphereWindEnabled)}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${atmosphereWindEnabled
-                          ? 'bg-gradient-to-r from-cyan-500 to-blue-600 shadow-lg shadow-cyan-300/50'
-                          : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${atmosphereWindEnabled
-                            ? 'translate-x-6 shadow-cyan-200'
-                            : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                            }`}
-                        />
-                      </button>
-                    </div>
-                  </>
-                )}
-
                 <div className="border-t border-gray-100 dark:border-gray-700"></div>
 
                 {/* AI图标显示模式 */}
@@ -1880,7 +1613,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               </div>
 
               {/* 时间设置区域 */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-4">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-4">
                 {/* 时间组件开关 */}
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -1894,20 +1627,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                       {timeComponentEnabled ? '在搜索框上方显示当前时间和日期' : '隐藏时间和日期显示'}
                     </p>
                   </div>
-                  <button
-                    onClick={() => setTimeComponentEnabled(!timeComponentEnabled)}
-                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${timeComponentEnabled
-                      ? 'bg-gradient-to-r from-orange-400 to-yellow-500 shadow-lg shadow-orange-300/50'
-                      : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                      }`}
-                  >
-                    <span
-                      className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${timeComponentEnabled
-                        ? 'translate-x-6 shadow-orange-200'
-                        : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                        }`}
-                    />
-                  </button>
+                  <IOSToggle
+                    checked={timeComponentEnabled}
+                    onChange={setTimeComponentEnabled}
+                  />
                 </div>
 
                 {timeComponentEnabled && (
@@ -2001,20 +1724,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                           {showWeekday ? '显示当前是星期几' : '隐藏星期信息'}
                         </p>
                       </div>
-                      <button
-                        onClick={() => setShowWeekday(!showWeekday)}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${showWeekday
-                          ? 'bg-gradient-to-r from-orange-400 to-yellow-500 shadow-lg shadow-orange-300/50'
-                          : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${showWeekday
-                            ? 'translate-x-6 shadow-orange-200'
-                            : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                            }`}
-                        />
-                      </button>
+                      <IOSToggle
+                        checked={showWeekday}
+                        onChange={setShowWeekday}
+                      />
                     </div>
 
                     <div className="border-t border-gray-100 dark:border-gray-700"></div>
@@ -2032,20 +1745,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                           {showSeconds ? '显示精确的秒数时间' : '只显示时:分，冒号每秒闪烁'}
                         </p>
                       </div>
-                      <button
-                        onClick={() => setShowSeconds(!showSeconds)}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${showSeconds
-                          ? 'bg-gradient-to-r from-orange-400 to-yellow-500 shadow-lg shadow-orange-300/50'
-                          : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                          }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${showSeconds
-                            ? 'translate-x-6 shadow-orange-200'
-                            : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                            }`}
-                        />
-                      </button>
+                      <IOSToggle
+                        checked={showSeconds}
+                        onChange={setShowSeconds}
+                      />
                     </div>
 
                     <div className="border-t border-gray-100 dark:border-gray-700"></div>
@@ -2066,20 +1769,10 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                               : '禁用倒计时功能'}
                           </p>
                         </div>
-                        <button
-                          onClick={() => setWorkCountdownEnabled(!workCountdownEnabled)}
-                          className={`relative inline-flex h-7 w-12 items-center rounded-full transition-all duration-300 hover:scale-105 ${workCountdownEnabled
-                            ? 'bg-gradient-to-r from-orange-400 to-yellow-500 shadow-lg shadow-orange-300/50'
-                            : 'bg-gradient-to-r from-gray-400 to-gray-500 dark:from-gray-600 dark:to-gray-700 shadow-lg shadow-gray-300/50 dark:shadow-gray-900/50'
-                            }`}
-                        >
-                          <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white dark:bg-gray-200 transition-all duration-300 shadow-md ${workCountdownEnabled
-                              ? 'translate-x-6 shadow-orange-200'
-                              : 'translate-x-1 shadow-gray-200 dark:shadow-gray-600'
-                              }`}
-                          />
-                        </button>
+                        <IOSToggle
+                          checked={workCountdownEnabled}
+                          onChange={setWorkCountdownEnabled}
+                        />
                       </div>
 
                       {workCountdownEnabled && (
@@ -2111,40 +1804,6 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
               </div>
             </div>
 
-            <div id="cards" ref={(el) => (sectionsRef.current['cards'] = el)} className="space-y-5 select-none settings-section scroll-mt-6">
-              <div className="flex items-center gap-3 select-none">
-                <div className="w-6 h-6 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <i className="fa-solid fa-layer-group text-white text-xs"></i>
-                </div>
-                <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 select-none">卡片管理</h3>
-                <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></div>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-violet-500 rounded-lg flex items-center justify-center">
-                      <i className="fa-solid fa-layer-group text-white text-sm"></i>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 select-none">卡片收藏</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 select-none">
-                        当前有 {websites.length} 个卡片
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setShowAddCardModal(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-b from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] select-none"
-                >
-                  <i className="fa-solid fa-plus select-none"></i>
-                  <span className="select-none">添加新卡片</span>
-                </button>
-              </div>
-            </div>
-
             <div id="data" ref={(el) => (sectionsRef.current['data'] = el)} className="space-y-5 select-none settings-section scroll-mt-6">
               <div className="flex items-center gap-3 select-none">
                 <div className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
@@ -2154,7 +1813,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                 <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-4">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
                     <i className="fa-solid fa-database text-white text-sm"></i>
@@ -2217,6 +1876,17 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                   className="hidden"
                 />
 
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 导入收藏夹按钮 */}
+                <button
+                  onClick={() => setShowBookmarkImport(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 select-none bg-gradient-to-b from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-600/40 hover:scale-[1.02]"
+                >
+                  <i className="fa-solid fa-bookmark select-none"></i>
+                  <span className="select-none">导入浏览器收藏夹</span>
+                </button>
+
                 <div className="bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-lg p-3 select-none">
                   <div className="flex items-start gap-2 select-none">
                     <i className="fa-solid fa-exclamation-triangle text-teal-500 dark:text-teal-400 text-sm mt-0.5 select-none"></i>
@@ -2242,7 +1912,7 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                 <div className="flex-1 h-px bg-gradient-to-r from-gray-200 dark:from-gray-700 to-transparent"></div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 space-y-4">
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-xl p-4 border border-gray-200/50 dark:border-gray-700/50 shadow-sm space-y-4">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
                     <i className="fa-solid fa-shield-halved text-white text-sm"></i>
@@ -2634,6 +2304,17 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
           </div>
         )
       }
+
+      {/* 收藏夹导入模态框 */}
+      {showBookmarkImport && (
+        <BookmarkImportModal
+          onClose={() => setShowBookmarkImport(false)}
+          dockItems={dockItems}
+          setDockItems={setDockItems}
+          websites={websites}
+          setWebsites={setWebsites}
+        />
+      )}
     </div >
   );
 }
