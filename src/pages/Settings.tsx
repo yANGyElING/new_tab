@@ -232,6 +232,16 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
     setDarkModeScheduleStart,
     darkModeScheduleEnd,
     setDarkModeScheduleEnd,
+    cardBlurEnabled,
+    cardNameEnabled,
+    cardTagsEnabled,
+    cardVisitCountEnabled,
+    cardSize,
+    setCardBlurEnabled,
+    setCardNameEnabled,
+    setCardTagsEnabled,
+    setCardVisitCountEnabled,
+    setCardSize,
   } = useTransparency();
 
   const { currentUser } = useAuth();
@@ -695,6 +705,11 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
         showMonth,
         showDay,
         searchBarBorderRadius,
+        cardBlurEnabled,
+        cardNameEnabled,
+        cardTagsEnabled,
+        cardVisitCountEnabled,
+        cardSize,
         lastSync: new Date().toISOString(),
       };
 
@@ -745,6 +760,23 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
         setShowYear(cloudSettings.showYear ?? true);
         setShowMonth(cloudSettings.showMonth ?? true);
         setShowDay(cloudSettings.showDay ?? true);
+
+        // 应用卡片显示配置
+        if (cloudSettings.cardBlurEnabled !== undefined) {
+          setCardBlurEnabled(cloudSettings.cardBlurEnabled);
+        }
+        if (cloudSettings.cardNameEnabled !== undefined) {
+          setCardNameEnabled(cloudSettings.cardNameEnabled);
+        }
+        if (cloudSettings.cardTagsEnabled !== undefined) {
+          setCardTagsEnabled(cloudSettings.cardTagsEnabled);
+        }
+        if (cloudSettings.cardVisitCountEnabled !== undefined) {
+          setCardVisitCountEnabled(cloudSettings.cardVisitCountEnabled);
+        }
+        if (cloudSettings.cardSize !== undefined) {
+          setCardSize(cloudSettings.cardSize);
+        }
 
         localStorage.setItem('theme', cloudSettings.theme || 'light');
       }
@@ -1492,6 +1524,114 @@ function SettingsComponent({ onClose, websites, setWebsites, onSettingsClose }: 
                   <IOSToggle
                     checked={showLabels}
                     onChange={setShowLabels}
+                  />
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 卡片模糊背景开关 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <i className="fa-solid fa-droplet text-blue-500 text-sm"></i>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                        卡片模糊背景
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                      {cardBlurEnabled ? '显示卡片底部的毛玻璃效果' : '隐藏模糊背景'}
+                    </p>
+                  </div>
+                  <IOSToggle
+                    checked={cardBlurEnabled}
+                    onChange={setCardBlurEnabled}
+                  />
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 卡片名称显示开关 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <i className="fa-solid fa-tag text-blue-500 text-sm"></i>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                        卡片名称
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                      {cardNameEnabled ? '显示卡片下方的名称' : '隐藏卡片名称'}
+                    </p>
+                  </div>
+                  <IOSToggle
+                    checked={cardNameEnabled}
+                    onChange={setCardNameEnabled}
+                  />
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 卡片标签显示开关 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <i className="fa-solid fa-tags text-blue-500 text-sm"></i>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                        卡片标签
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                      {cardTagsEnabled ? '显示卡片底部的标签信息' : '隐藏标签'}
+                    </p>
+                  </div>
+                  <IOSToggle
+                    checked={cardTagsEnabled}
+                    onChange={setCardTagsEnabled}
+                  />
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 卡片访问次数显示开关 */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <i className="fa-solid fa-chart-simple text-blue-500 text-sm"></i>
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                        访问次数
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                      {cardVisitCountEnabled ? '显示卡片的访问统计' : '隐藏访问次数'}
+                    </p>
+                  </div>
+                  <IOSToggle
+                    checked={cardVisitCountEnabled}
+                    onChange={setCardVisitCountEnabled}
+                  />
+                </div>
+
+                <div className="border-t border-gray-100 dark:border-gray-700"></div>
+
+                {/* 卡片大小调节 */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <i className="fa-solid fa-expand text-purple-500 text-sm"></i>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 select-none">
+                      卡片大小
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 select-none">
+                    调整网站卡片的显示大小（当前：{cardSize}%）
+                  </p>
+                  <IOSSlider
+                    value={cardSize}
+                    onChange={setCardSize}
+                    min={40}
+                    max={120}
+                    step={5}
+                    showValue={true}
+                    unit="%"
                   />
                 </div>
               </div>
