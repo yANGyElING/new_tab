@@ -139,6 +139,8 @@ export const sanitizeUserSettings = (settings: any): UserSettings => {
         settings.autoSyncInterval <= 300
         ? settings.autoSyncInterval
         : 30,
+    searchInNewTab:
+      typeof settings.searchInNewTab === 'boolean' ? settings.searchInNewTab : false,
     autoSortEnabled:
       typeof settings.autoSortEnabled === 'boolean' ? settings.autoSortEnabled : false,
     timeComponentEnabled:
@@ -149,6 +151,26 @@ export const sanitizeUserSettings = (settings: any): UserSettings => {
     showYear: typeof settings.showYear === 'boolean' ? settings.showYear : true,
     showMonth: typeof settings.showMonth === 'boolean' ? settings.showMonth : true,
     showDay: typeof settings.showDay === 'boolean' ? settings.showDay : true,
+    searchBarBorderRadius:
+      typeof settings.searchBarBorderRadius === 'number' &&
+        settings.searchBarBorderRadius >= 0 &&
+        settings.searchBarBorderRadius <= 50
+        ? settings.searchBarBorderRadius
+        : 12,
+    cardBlurEnabled:
+      typeof settings.cardBlurEnabled === 'boolean' ? settings.cardBlurEnabled : true,
+    cardNameEnabled:
+      typeof settings.cardNameEnabled === 'boolean' ? settings.cardNameEnabled : true,
+    cardTagsEnabled:
+      typeof settings.cardTagsEnabled === 'boolean' ? settings.cardTagsEnabled : true,
+    cardVisitCountEnabled:
+      typeof settings.cardVisitCountEnabled === 'boolean' ? settings.cardVisitCountEnabled : true,
+    cardSize:
+      typeof settings.cardSize === 'number' &&
+        settings.cardSize >= 40 &&
+        settings.cardSize <= 120
+        ? settings.cardSize
+        : 100,
     lastSync: typeof settings.lastSync === 'string' ? settings.lastSync : new Date().toISOString(),
   };
 };
