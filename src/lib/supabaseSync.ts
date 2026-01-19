@@ -30,6 +30,11 @@ export interface UserSettings {
   showMonth?: boolean; // 是否显示月份
   showDay?: boolean; // 是否显示日期
   searchBarBorderRadius?: number; // 搜索框圆角大小（可选，向后兼容）
+  cardBlurEnabled?: boolean; // 卡片模糊背景开关（可选，向后兼容）
+  cardNameEnabled?: boolean; // 卡片名称显示开关（可选，向后兼容）
+  cardTagsEnabled?: boolean; // 卡片标签显示开关（可选，向后兼容）
+  cardVisitCountEnabled?: boolean; // 卡片访问次数显示开关（可选，向后兼容）
+  cardSize?: number; // 卡片大小（40-120，默认100）（可选，向后兼容）
   lastSync: string;
 }
 
@@ -126,6 +131,11 @@ export const saveUserSettings = async (
         show_month: validatedSettings.showMonth ?? true,
         show_day: validatedSettings.showDay ?? true,
         search_bar_border_radius: validatedSettings.searchBarBorderRadius ?? 12,
+        card_blur_enabled: validatedSettings.cardBlurEnabled ?? true,
+        card_name_enabled: validatedSettings.cardNameEnabled ?? true,
+        card_tags_enabled: validatedSettings.cardTagsEnabled ?? true,
+        card_visit_count_enabled: validatedSettings.cardVisitCountEnabled ?? true,
+        card_size: validatedSettings.cardSize ?? 100,
         last_sync: new Date().toISOString(),
       };
 
@@ -214,6 +224,11 @@ export const getUserSettings = async (user: User): Promise<UserSettings | null> 
         showMonth: data.show_month !== undefined ? data.show_month : true,
         showDay: data.show_day !== undefined ? data.show_day : true,
         searchBarBorderRadius: data.search_bar_border_radius !== undefined ? data.search_bar_border_radius : 12,
+        cardBlurEnabled: data.card_blur_enabled !== undefined ? data.card_blur_enabled : true,
+        cardNameEnabled: data.card_name_enabled !== undefined ? data.card_name_enabled : true,
+        cardTagsEnabled: data.card_tags_enabled !== undefined ? data.card_tags_enabled : true,
+        cardVisitCountEnabled: data.card_visit_count_enabled !== undefined ? data.card_visit_count_enabled : true,
+        cardSize: data.card_size !== undefined ? data.card_size : 100,
         lastSync: data.last_sync,
       };
     } else {
