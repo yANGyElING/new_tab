@@ -54,6 +54,11 @@ function AppContent() {
     setAutoSyncEnabled,
     setAutoSyncInterval,
     setAutoSortEnabled,
+    setCardBlurEnabled,
+    setCardNameEnabled,
+    setCardTagsEnabled,
+    setCardVisitCountEnabled,
+    setCardSize,
   } = useTransparency();
 
   // 云端数据管理
@@ -206,7 +211,24 @@ function AppContent() {
       setParallaxEnabled(cloudSettings.parallaxEnabled);
       setWallpaperResolution(cloudSettings.wallpaperResolution);
       setAutoSyncEnabled(cloudSettings.autoSyncEnabled);
-      setAutoSortEnabled(cloudSettings.autoSortEnabled ?? false); // 提供默认值
+      setAutoSortEnabled(cloudSettings.autoSortEnabled ?? false);
+
+      // 应用新增的卡片显示配置
+      if (cloudSettings.cardBlurEnabled !== undefined) {
+        setCardBlurEnabled(cloudSettings.cardBlurEnabled);
+      }
+      if (cloudSettings.cardNameEnabled !== undefined) {
+        setCardNameEnabled(cloudSettings.cardNameEnabled);
+      }
+      if (cloudSettings.cardTagsEnabled !== undefined) {
+        setCardTagsEnabled(cloudSettings.cardTagsEnabled);
+      }
+      if (cloudSettings.cardVisitCountEnabled !== undefined) {
+        setCardVisitCountEnabled(cloudSettings.cardVisitCountEnabled);
+      }
+      if (cloudSettings.cardSize !== undefined) {
+        setCardSize(cloudSettings.cardSize);
+      }
 
       // 同步主题设置
       if (cloudSettings.theme) {
