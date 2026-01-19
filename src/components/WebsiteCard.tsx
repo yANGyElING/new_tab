@@ -71,10 +71,29 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
   const [imgError, setImgError] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
-  const { autoSortEnabled, searchInNewTab, searchBarColor, searchBarOpacity } = useTransparency();
+  const {
+    autoSortEnabled,
+    searchInNewTab,
+    searchBarColor,
+    searchBarOpacity,
+    cardBlurEnabled,
+    cardNameEnabled,
+    cardTagsEnabled,
+    cardVisitCountEnabled,
+    cardSize,
+  } = useTransparency();
   const { faviconUrl, isLoading, error } = useLazyFavicon(url, favicon, cardRef);
-  const { isMobile, getCardClasses } = useResponsiveLayout();
+  const { isMobile, deviceType, getCardClasses } = useResponsiveLayout();
   const cardBorderRadius = isMobile ? 12 : 16;
+
+  // 计算动态卡片宽度（基于cardSize百分比），根据设备类型使用正确的基准宽度
+  const baseCardWidth = useMemo(() => {
+    if (deviceType === 'mobile') return 64; // 4rem = 64px
+    if (deviceType === 'tablet') return 80; // 5rem = 80px
+    return 88; // desktop/wide: 5.5rem = 88px
+  }, [deviceType]);
+
+  const scaledCardWidth = Math.max(40, Math.min(120, (baseCardWidth * cardSize) / 100));
 
   // 判断是否显示错误占位
   const showErrorPlaceholder = !icon && (error || imgError || !faviconUrl);
@@ -269,6 +288,7 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
         className={`${getCardClasses()} relative flex flex-col items-center`}
         style={{
           aspectRatio: 'auto',
+          width: `${scaledCardWidth}px`,
         }}
         animate={{
           opacity: isDragging ? 0.5 : 1,
@@ -290,7 +310,6 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
         onContextMenu={handleContextMenu}
         whileTap={{
           scale: 0.95,
-          filter: 'brightness(0.85)',
           transition: { duration: 0.1, ease: 'easeInOut' },
         }}
         initial={{ opacity: 0, y: 20 }}
@@ -322,43 +341,100 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
             aspectRatio: '1 / 1',
           }}
         >
-          {/* 图标层 - 充满整个卡片 */}
-          <div
-            className="absolute inset-0 overflow-hidden select-none backdrop-blur-2xl border border-white/30"
-            style={{
-              borderRadius: `${cardBorderRadius / 16}rem`,
-              background: icon
-                ? (iconColor || 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)')
-                : `rgba(${searchBarColor}, ${searchBarOpacity})`,
-              boxShadow: '0 0.25rem 1rem rgba(0,0,0,0.3)',
-            }}
-          >
-            {icon ? (
-              // FontAwesome 图标 - 缩小尺寸，靠上显示
-              <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%' }}>
+          {/* 图标层 - 充满整个卡片或仅显示图标 */}
+          {cardBlurEnabled ? (
+            // 有背景模式：显示完整的卡片背景
+            <div
+              className="absolute inset-0 overflow-hidden select-none backdrop-blur-2xl border border-white/30"
+              style={{
+                borderRadius: `${cardBorderRadius / 16}rem`,
+                background: icon
+                  ? (iconColor || 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)')
+                  : `rgba(${searchBarColor}, ${searchBarOpacity})`,
+                boxShadow: '0 0.25rem 1rem rgba(0,0,0,0.3)',
+              }}
+            >
+              {icon ? (
+                // FontAwesome 图标 - 缩小尺寸，靠上显示
+                <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%' }}>
+                  <i
+                    className={icon}
+                    style={{
+                      fontSize: isMobile ? '1.5rem' : '1.875rem',
+                      color: 'rgba(255, 255, 255, 0.95)',
+                      filter: 'drop-shadow(0 0.125rem 0.25rem rgba(0, 0, 0, 0.3))',
+                    }}
+                  />
+                </div>
+              ) : showErrorPlaceholder ? (
+                // 错误占位 - 显示地球图标，靠上显示
+                <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%' }}>
+                  <i
+                    className="fa-solid fa-globe"
+                    style={{
+                      fontSize: isMobile ? '1.25rem' : '1.5rem',
+                      color: 'rgba(255, 255, 255, 0.5)',
+                    }}
+                  />
+                </div>
+              ) : (
+                // Favicon - 缩小并靠上显示
+                <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%', paddingTop: '1rem' }}>
+                  <img
+                    src={faviconUrl}
+                    alt={`${name} favicon`}
+                    className="select-none"
+                    loading="lazy"
+                    draggable="false"
+                    onError={() => setImgError(true)}
+                    style={{
+                      width: isMobile ? '2.5rem' : '3rem',
+                      height: isMobile ? '2.5rem' : '3rem',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* 加载状态指示器 */}
+              {!icon && isLoading && !showErrorPlaceholder && (
+                <div
+                  className="absolute bg-yellow-400 rounded-full animate-pulse"
+                  style={{
+                    top: '0.25rem',
+                    right: '0.25rem',
+                    width: '0.375rem',
+                    height: '0.375rem',
+                  }}
+                  title="加载中..."
+                />
+              )}
+            </div>
+          ) : (
+            // 无背景模式：仅显示放大的图标，居中显示
+            <div className="absolute inset-0 flex items-center justify-center select-none">
+              {icon ? (
+                // FontAwesome 图标 - 放大显示
                 <i
                   className={icon}
                   style={{
-                    fontSize: isMobile ? '1.25rem' : '1.5rem',
+                    fontSize: isMobile ? '2.5rem' : '3.5rem',
                     color: 'rgba(255, 255, 255, 0.95)',
-                    filter: 'drop-shadow(0 0.125rem 0.25rem rgba(0, 0, 0, 0.3))',
+                    filter: 'drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.5))',
                   }}
                 />
-              </div>
-            ) : showErrorPlaceholder ? (
-              // 错误占位 - 显示地球图标，靠上显示
-              <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%' }}>
+              ) : showErrorPlaceholder ? (
+                // 错误占位 - 显示地球图标
                 <i
                   className="fa-solid fa-globe"
                   style={{
-                    fontSize: isMobile ? '1rem' : '1.25rem',
-                    color: 'rgba(255, 255, 255, 0.5)',
+                    fontSize: isMobile ? '2rem' : '3rem',
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    filter: 'drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.5))',
                   }}
                 />
-              </div>
-            ) : (
-              // Favicon - 缩小并靠上显示
-              <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: '35%', paddingTop: '1rem' }}>
+              ) : (
+                // Favicon - 放大显示
                 <img
                   src={faviconUrl}
                   alt={`${name} favicon`}
@@ -367,31 +443,32 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
                   draggable="false"
                   onError={() => setImgError(true)}
                   style={{
-                    width: isMobile ? '2rem' : '2.5rem',
-                    height: isMobile ? '2rem' : '2.5rem',
+                    width: isMobile ? '3.5rem' : '4.5rem',
+                    height: isMobile ? '3.5rem' : '4.5rem',
                     objectFit: 'contain',
+                    filter: 'drop-shadow(0 0.25rem 0.5rem rgba(0, 0, 0, 0.5))',
                   }}
                 />
-              </div>
-            )}
+              )}
 
-            {/* 加载状态指示器 */}
-            {!icon && isLoading && !showErrorPlaceholder && (
-              <div
-                className="absolute bg-yellow-400 rounded-full animate-pulse"
-                style={{
-                  top: '0.25rem',
-                  right: '0.25rem',
-                  width: '0.375rem',
-                  height: '0.375rem',
-                }}
-                title="加载中..."
-              />
-            )}
-          </div>
+              {/* 加载状态指示器 */}
+              {!icon && isLoading && !showErrorPlaceholder && (
+                <div
+                  className="absolute bg-yellow-400 rounded-full animate-pulse"
+                  style={{
+                    top: '0.25rem',
+                    right: '0.25rem',
+                    width: '0.375rem',
+                    height: '0.375rem',
+                  }}
+                  title="加载中..."
+                />
+              )}
+            </div>
+          )}
 
           {/* 底部毛玻璃层 - 只显示标签和访问次数 */}
-          {(tags.length > 0 || visitCount > 0) && (
+          {(cardBlurEnabled || (cardTagsEnabled && tags.length > 0) || (cardVisitCountEnabled && visitCount > 0)) && (
             <div
               className="absolute left-0 right-0 bottom-0 pointer-events-none select-none"
               style={{
@@ -400,57 +477,61 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
                 transform: 'translateZ(0)',
               }}
             >
-              {/* 毛玻璃遮罩 */}
-              <div
-                className="absolute inset-0 backdrop-blur-md"
-                style={{
-                  background: 'linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.3) 100%)',
-                  borderRadius: `0 0 ${cardBorderRadius / 16}rem ${cardBorderRadius / 16}rem`,
-                  WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%)',
-                  maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%)',
-                  willChange: 'transform, opacity',
-                  transform: 'translateZ(0)',
-                }}
-              />
+              {/* 毛玻璃遮罩 - 根据配置显示/隐藏 */}
+              {cardBlurEnabled && (
+                <div
+                  className="absolute inset-0 backdrop-blur-md"
+                  style={{
+                    background: 'linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.3) 100%)',
+                    borderRadius: `0 0 ${cardBorderRadius / 16}rem ${cardBorderRadius / 16}rem`,
+                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%)',
+                    maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%)',
+                    willChange: 'transform, opacity',
+                    transform: 'translateZ(0)',
+                  }}
+                />
+              )}
 
               {/* 标签和访问次数 */}
-              <div
-                className="absolute bottom-0 left-0 right-0 flex flex-wrap items-center justify-center select-none"
-                style={{
-                  padding: isMobile ? '0.125rem' : '0.1875rem',
-                  gap: '0.125rem',
-                }}
-              >
-                {tags.slice(0, 1).map((tag) => (
-                  <span
-                    key={tag}
-                    className="bg-black/20 text-white truncate select-none"
-                    style={{
-                      padding: '0.0625rem 0.25rem',
-                      borderRadius: '0.1875rem',
-                      fontSize: isMobile ? '0.5rem' : '0.625rem',
-                      maxWidth: '3rem',
-                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
-                    }}
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {visitCount > 0 && (
-                  <span
-                    className="bg-blue-500/40 text-white select-none"
-                    style={{
-                      padding: '0.0625rem 0.25rem',
-                      borderRadius: '0.1875rem',
-                      fontSize: isMobile ? '0.5rem' : '0.625rem',
-                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
-                    }}
-                  >
-                    <i className="fa-solid fa-eye select-none" style={{ marginRight: '0.0625rem' }}></i>
-                    <span className="select-none">{visitCount}</span>
-                  </span>
-                )}
-              </div>
+              {((cardTagsEnabled && tags.length > 0) || (cardVisitCountEnabled && visitCount > 0)) && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 flex flex-wrap items-center justify-center select-none"
+                  style={{
+                    padding: isMobile ? '0.125rem' : '0.1875rem',
+                    gap: '0.125rem',
+                  }}
+                >
+                  {cardTagsEnabled && tags.slice(0, 1).map((tag) => (
+                    <span
+                      key={tag}
+                      className="bg-black/20 text-white truncate select-none"
+                      style={{
+                        padding: '0.0625rem 0.25rem',
+                        borderRadius: '0.1875rem',
+                        fontSize: isMobile ? '0.5rem' : '0.625rem',
+                        maxWidth: '3rem',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+                      }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                  {cardVisitCountEnabled && visitCount > 0 && (
+                    <span
+                      className="bg-blue-500/40 text-white select-none"
+                      style={{
+                        padding: '0.0625rem 0.25rem',
+                        borderRadius: '0.1875rem',
+                        fontSize: isMobile ? '0.5rem' : '0.625rem',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+                      }}
+                    >
+                      <i className="fa-solid fa-eye select-none" style={{ marginRight: '0.0625rem' }}></i>
+                      <span className="select-none">{visitCount}</span>
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -474,23 +555,25 @@ export const WebsiteCard = memo(function WebsiteCardComponent({
           )}
         </Tilt>
 
-        {/* 卡片名称 - 在卡片下方 */}
-        <h3
-          className="text-white text-center select-none w-full"
-          style={{
-            fontSize: isMobile ? '0.75rem' : '0.8rem',
-            lineHeight: '1.3',
-            marginTop: '0.375rem',
-            textShadow: '0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.5)',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            wordBreak: 'break-word',
-          }}
-        >
-          {name}
-        </h3>
+        {/* 卡片名称 - 在卡片下方，根据配置显示/隐藏 */}
+        {cardNameEnabled && (
+          <h3
+            className="text-white text-center select-none w-full"
+            style={{
+              fontSize: isMobile ? '0.75rem' : '0.8rem',
+              lineHeight: '1.3',
+              marginTop: '0.375rem',
+              textShadow: '0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.5)',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              wordBreak: 'break-word',
+            }}
+          >
+            {name}
+          </h3>
+        )}
       </motion.div>
 
       {showEditModal && (
