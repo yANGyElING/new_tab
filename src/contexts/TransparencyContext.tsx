@@ -51,6 +51,11 @@ interface TransparencyContextType {
   darkModePreference: 'system' | 'on' | 'off' | 'scheduled'; // 夜间模式偏好
   darkModeScheduleStart: string; // 定时开始时间 HH:mm
   darkModeScheduleEnd: string; // 定时结束时间 HH:mm
+  cardBlurEnabled: boolean; // 卡片模糊背景开关
+  cardNameEnabled: boolean; // 卡片名称显示开关
+  cardTagsEnabled: boolean; // 卡片标签显示开关
+  cardVisitCountEnabled: boolean; // 卡片访问次数显示开关
+  cardSize: number; // 卡片大小（40-120，默认100）
   setParallaxEnabled: (enabled: boolean) => void;
   setWallpaperResolution: (resolution: WallpaperResolution) => void;
   setIsSettingsOpen: (open: boolean) => void;
@@ -80,6 +85,11 @@ interface TransparencyContextType {
   setDarkModeScheduleStart: (time: string) => void;
   setDarkModeScheduleEnd: (time: string) => void;
   setIsSlowMotion: (value: boolean) => void;
+  setCardBlurEnabled: (enabled: boolean) => void;
+  setCardNameEnabled: (enabled: boolean) => void;
+  setCardTagsEnabled: (enabled: boolean) => void;
+  setCardVisitCountEnabled: (enabled: boolean) => void;
+  setCardSize: (size: number) => void;
 }
 
 const TransparencyContext = createContext<TransparencyContextType | undefined>(undefined);
@@ -269,6 +279,39 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     return saved || '06:00'; // 默认早上6点
   });
 
+  // 卡片显示配置
+  const [cardBlurEnabled, setCardBlurEnabled] = useState(() => {
+    const saved = localStorage.getItem('cardBlurEnabled');
+    return saved ? JSON.parse(saved) : true;
+  });
+
+  const [cardNameEnabled, setCardNameEnabled] = useState(() => {
+    const saved = localStorage.getItem('cardNameEnabled');
+    return saved ? JSON.parse(saved) : true;
+  });
+
+  const [cardTagsEnabled, setCardTagsEnabled] = useState(() => {
+    const saved = localStorage.getItem('cardTagsEnabled');
+    return saved ? JSON.parse(saved) : true;
+  });
+
+  const [cardVisitCountEnabled, setCardVisitCountEnabled] = useState(() => {
+    const saved = localStorage.getItem('cardVisitCountEnabled');
+    return saved ? JSON.parse(saved) : true;
+  });
+
+  const [cardSize, setCardSize] = useState(() => {
+    const saved = localStorage.getItem('cardSize');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // 校验范围：40-120
+      if (typeof parsed === 'number' && parsed >= 40 && parsed <= 120) {
+        return parsed;
+      }
+    }
+    return 100;
+  });
+
   // 用于触发定时模式更新的时间状态
   const [currentMinute, setCurrentMinute] = useState(() => {
     const now = new Date();
@@ -447,6 +490,26 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('darkModeScheduleEnd', darkModeScheduleEnd);
   }, [darkModeScheduleEnd]);
 
+  useEffect(() => {
+    localStorage.setItem('cardBlurEnabled', JSON.stringify(cardBlurEnabled));
+  }, [cardBlurEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('cardNameEnabled', JSON.stringify(cardNameEnabled));
+  }, [cardNameEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('cardTagsEnabled', JSON.stringify(cardTagsEnabled));
+  }, [cardTagsEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('cardVisitCountEnabled', JSON.stringify(cardVisitCountEnabled));
+  }, [cardVisitCountEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('cardSize', JSON.stringify(cardSize));
+  }, [cardSize]);
+
   // 夜间模式主题应用
   useEffect(() => {
     const theme = darkMode ? 'dark' : 'light';
@@ -491,6 +554,11 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     darkModeScheduleStart,
     darkModeScheduleEnd,
     isSlowMotion,
+    cardBlurEnabled,
+    cardNameEnabled,
+    cardTagsEnabled,
+    cardVisitCountEnabled,
+    cardSize,
     setParallaxEnabled,
     setWallpaperResolution,
     setIsSettingsOpen,
@@ -520,12 +588,18 @@ export function TransparencyProvider({ children }: { children: ReactNode }) {
     setDarkModeScheduleStart,
     setDarkModeScheduleEnd,
     setIsSlowMotion,
+    setCardBlurEnabled,
+    setCardNameEnabled,
+    setCardTagsEnabled,
+    setCardVisitCountEnabled,
+    setCardSize,
   }), [
     searchBarOpacity, parallaxEnabled, wallpaperResolution, isSettingsOpen, isSearchFocused, searchBarColor,
     autoSyncEnabled, autoSyncInterval, searchInNewTab, searchEngine, autoSortEnabled, timeComponentEnabled, showFullDate, showSeconds, showWeekday,
     showYear, showMonth, showDay, dateDisplayMode, searchBarBorderRadius, animationStyle, workCountdownEnabled, lunchTime, offWorkTime,
     aiIconDisplayMode, atmosphereMode, atmosphereParticleCount, atmosphereWindEnabled, darkOverlayEnabled, darkOverlayMode, noiseEnabled,
-    darkMode, darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, isSlowMotion
+    darkMode, darkModePreference, darkModeScheduleStart, darkModeScheduleEnd, isSlowMotion,
+    cardBlurEnabled, cardNameEnabled, cardTagsEnabled, cardVisitCountEnabled, cardSize
   ]);
 
   return (
